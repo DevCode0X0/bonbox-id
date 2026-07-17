@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type Product = {
   id: string;
@@ -40,19 +40,29 @@ function ProductImage({ product }: { product: Product }) {
 }
 
 export default function ProductCatalog({ initialProducts }: { initialProducts: Product[] }) {
+  const [catalog, setCatalog] = useState(initialProducts);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
   const [sort, setSort] = useState("popular");
   const [visible, setVisible] = useState(PAGE_SIZE);
 
+  useEffect(() => {
+    fetch("/api/products")
+      .then((response) => response.json())
+      .then((data) => {
+        if (Array.isArray(data.products) && data.products.length) setCatalog(data.products);
+      })
+      .catch(() => undefined);
+  }, []);
+
   const categories = useMemo(
-    () => ["Semua", ...Array.from(new Set(initialProducts.map((product) => product.category))).sort()],
-    [initialProducts],
+    () => ["Semua", ...Array.from(new Set(catalog.map((product) => product.category))).sort()],
+    [catalog],
   );
 
   const products = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    const filtered = initialProducts.filter((product) => {
+    const filtered = catalog.filter((product) => {
       const matchesCategory = category === "Semua" || product.category === category;
       const matchesQuery = !normalized || `${product.name} ${product.store} ${product.category}`.toLowerCase().includes(normalized);
       return matchesCategory && matchesQuery;
@@ -62,7 +72,7 @@ export default function ProductCatalog({ initialProducts }: { initialProducts: P
     }
     if (sort === "name") return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
     return [...filtered].sort((a, b) => Number(b.featured) - Number(a.featured));
-  }, [initialProducts, query, category, sort]);
+  }, [catalog, query, category, sort]);
 
   function chooseCategory(value: string) {
     setCategory(value);
@@ -91,7 +101,7 @@ export default function ProductCatalog({ initialProducts }: { initialProducts: P
             <input value={query} onChange={(event) => { setQuery(event.target.value); setVisible(PAGE_SIZE); }} placeholder="Cari pel, rak, tumbler..." aria-label="Cari produk" />
             <a href="#produk">Cari</a>
           </div>
-          <div className="hero-proof"><b>100</b> produk pilihan <i /> <b>Checkout</b> di Shopee <i /> <b>Official</b> affiliate links</div>
+          <div className="hero-proof"><b>{catalog.length}</b> produk pilihan <i /> <b>Checkout</b> di Shopee <i /> <b>Official</b> affiliate links</div>
         </div>
         <div className="hero-art" aria-label="Koleksi home living BONBOX">
           <div className="art-sun" />
@@ -106,7 +116,7 @@ export default function ProductCatalog({ initialProducts }: { initialProducts: P
         <div className="category-row">
           {categories.map((item, index) => (
             <button className={category === item ? "category active" : "category"} onClick={() => chooseCategory(item)} key={item}>
-              <span>{String(index + 1).padStart(2, "0")}</span><b>{item}</b><small>{item === "Semua" ? initialProducts.length : initialProducts.filter((p) => p.category === item).length} produk</small>
+              <span>{String(index + 1).padStart(2, "0")}</span><b>{item}</b><small>{item === "Semua" ? catalog.length : catalog.filter((p) => p.category === item).length} produk</small>
             </button>
           ))}
         </div>
