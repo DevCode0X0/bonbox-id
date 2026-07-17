@@ -61,3 +61,26 @@ export const getProductById = cache(async (id: string): Promise<ServerProduct | 
     return fallbackProduct(id);
   }
 });
+
+export type SitemapProduct = {
+  id: string;
+  images: string[];
+  updatedAt?: string;
+};
+
+export const getSitemapProducts = cache(async (): Promise<SitemapProduct[]> => {
+  const fallback = seedProducts.map((product) => ({ id: product.id, images: product.imageUrl ? [product.imageUrl] : [] }));
+  const { DB } = env as unknown as RuntimeEnv;
+  if (!DB) return fallback;
+  try {
+    const result = await DB.prepare("SELECT id, image_url, gallery_urls, updated_at FROM products WHERE active = 1 ORDER BY rowid ASC").all<Record<string, unknown>>();
+    return result.results.map((row) => {
+      let galleryUrls: string[] = [];
+      try { galleryUrls = JSON.parse(String(row.gallery_urls ?? "[]")); } catch { galleryUrls = []; }
+      const images = [String(row.image_url ?? ""), ...galleryUrls].filter((url, index, all) => url && all.indexOf(url) === index);
+      return { id: String(row.id), images, updatedAt: row.updated_at ? String(row.updated_at) : undefined };
+    });
+  } catch {
+    return fallback;
+  }
+});
