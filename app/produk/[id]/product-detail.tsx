@@ -2,10 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Product } from "../../product-catalog";
-
-function priceLabel(label: string) {
-  return label ? `Rp${label.replace("RB", " rb")}` : "Cek harga di Shopee";
-}
+import { formatRupiahLabel } from "../../../lib/format-rupiah";
 
 export default function ProductDetail({ productId, initialProduct }: { productId: string; initialProduct: Product | null }) {
   const [product, setProduct] = useState<Product | null>(initialProduct);
@@ -46,7 +43,7 @@ export default function ProductDetail({ productId, initialProduct }: { productId
           <div className="detail-label">{product.category} · {product.salesLabel} terjual</div>
           <h1>{product.name}</h1>
           <p className="detail-store">Dijual oleh <b>{product.store}</b></p>
-          <div className="detail-price"><small>Harga mulai</small><strong>{priceLabel(product.priceLabel)}</strong><span>Harga dapat berubah di Shopee</span></div>
+          <div className="detail-price"><small>Harga mulai</small><strong>{formatRupiahLabel(product.priceLabel)}</strong><span>Harga dapat berubah di Shopee</span></div>
           <div className="detail-highlights"><div><b>✓</b><span><strong>Checkout aman</strong><small>Transaksi diselesaikan di Shopee</small></span></div><div><b>↗</b><span><strong>Link affiliate resmi</strong><small>Anda tetap mendapat layanan dari toko</small></span></div></div>
           <a className="shopee-button" href={product.affiliateUrl} target="_blank" rel="sponsored noopener">Lanjutkan beli di Shopee <span>↗</span></a>
           <p className="affiliate-note">BONBOX.id dapat menerima komisi dari transaksi yang memenuhi ketentuan, tanpa menambah harga belanja Anda.</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { formatRupiahLabel } from "../lib/format-rupiah";
 
 export type Product = {
   id: string;
@@ -22,11 +23,6 @@ export type Product = {
 };
 
 const PAGE_SIZE = 20;
-
-function rupiahLabel(label: string) {
-  if (!label) return "Cek harga";
-  return `Rp${label.replace("RB", " rb")}`;
-}
 
 function ProductImage({ product }: { product: Product }) {
   const [failed, setFailed] = useState(false);
@@ -144,7 +140,7 @@ export default function ProductCatalog({ initialProducts }: { initialProducts: P
                     <div className="product-meta"><span>{product.category}</span><span>{product.salesLabel} terjual</span></div>
                     <h3><a href={`/produk/${product.id}`}>{product.name}</a></h3>
                     <p className="store-name">{product.store}</p>
-                    <div className="product-footer"><div><small>Mulai</small><strong>{rupiahLabel(product.priceLabel)}</strong></div><a href={`/produk/${product.id}`}>Lihat detail <span>→</span></a></div>
+                    <div className="product-footer"><div><small>Mulai</small><strong>{formatRupiahLabel(product.priceLabel)}</strong></div><a href={`/produk/${product.id}`}>Lihat detail <span>→</span></a></div>
                   </div>
                 </article>
               ))}
