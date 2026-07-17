@@ -21,3 +21,7 @@
 .benefit{border-top-color:#60426f}
 .benefit small{color:#cdbed6}
 .editor-form{background:#fffbff}
+
+/* Softer product cards */
+.product-card{border-radius:14px;overflow:hidden}
+.badge{background:rgba(68,32,92,.68);border:1px solid rgba(255,255,255,.24);border-radius:999px;backdrop-filter:blur(8px);box-shadow:0 3px 10px rgba(36,20,47,.12)}

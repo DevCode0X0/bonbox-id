@@ -7,15 +7,23 @@ import Brand from "../brand";
 type Status = { kind: "info" | "success" | "error"; text: string };
 type EditableField = "imageUrl" | "videoUrl" | "description" | "category";
 
+function createGalleryDrafts(products: Product[]) {
+  return Object.fromEntries(products.map((product) => [product.id, product.galleryUrls.join("\n")]));
+}
+
 export default function AdminProducts({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = useState(initialProducts);
+  const [galleryDrafts, setGalleryDrafts] = useState<Record<string, string>>(() => createGalleryDrafts(initialProducts));
   const [token, setToken] = useState("");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "info", text: "Masukkan kunci admin, lalu pilih produk yang ingin diedit." });
 
   useEffect(() => {
     fetch("/api/products").then((response) => response.json()).then((data) => {
-      if (data.products) setProducts(data.products);
+      if (data.products) {
+        setProducts(data.products);
+        setGalleryDrafts(createGalleryDrafts(data.products));
+      }
     }).catch(() => undefined);
   }, []);
 
@@ -30,6 +38,7 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
   }
 
   function updateGallery(id: string, value: string) {
+    setGalleryDrafts((current) => ({ ...current, [id]: value }));
     const galleryUrls = value.split(/\r?\n/).map((url) => url.trim()).filter(Boolean);
     setProducts((current) => current.map((product) => product.id === id ? { ...product, galleryUrls } : product));
   }
@@ -69,7 +78,7 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
               <div className="editor-form">
                 <label><span>Kategori</span><input value={product.category} onChange={(event) => updateProduct(product.id, "category", event.target.value)} /></label>
                 <label className="wide"><span>Feature image</span><input value={product.imageUrl} onChange={(event) => updateProduct(product.id, "imageUrl", event.target.value)} placeholder="https://...webp" /></label>
-                <label className="wide"><span>Galeri foto <small>satu URL per baris</small></span><textarea rows={5} value={product.galleryUrls.join("\n")} onChange={(event) => updateGallery(product.id, event.target.value)} placeholder={"https://...foto-2.webp\nhttps://...foto-3.webp"} /></label>
+                <label className="wide"><span>Galeri foto <small>satu URL per baris</small></span><textarea rows={5} value={galleryDrafts[product.id] ?? product.galleryUrls.join("\n")} onChange={(event) => updateGallery(product.id, event.target.value)} placeholder={"https://...foto-2.webp\nhttps://...foto-3.webp"} /></label>
                 <label className="wide"><span>Video produk</span><input value={product.videoUrl} onChange={(event) => updateProduct(product.id, "videoUrl", event.target.value)} placeholder="https://...video.mp4" /></label>
                 <label className="wide"><span>Deskripsi produk</span><textarea rows={6} value={product.description} onChange={(event) => updateProduct(product.id, "description", event.target.value)} placeholder="Tuliskan manfaat, bahan, ukuran, dan cara penggunaan..." /></label>
                 <div className="editor-actions"><a href={`/produk/${product.id}`} target="_blank" rel="noopener">Preview halaman detail ↗</a><button className="save-button" type="button" onClick={() => save(product)}>Simpan perubahan</button></div>
