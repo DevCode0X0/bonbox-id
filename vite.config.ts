@@ -13,7 +13,14 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const localBindingConfig = {
   name: "bonbox-id",
   main: "./worker/index.ts",
+  compatibility_date: "2026-07-17",
   compatibility_flags: ["nodejs_compat"],
+  workers_dev: false,
+  preview_urls: false,
+  routes: [
+    { pattern: "bonbox.id", custom_domain: true },
+    { pattern: "www.bonbox.id", custom_domain: true },
+  ],
   d1_databases: d1
     ? [
         {
