@@ -136,7 +136,16 @@ export default function ProductCatalog({ initialProducts }: { initialProducts: P
             <div className="product-grid">
               {products.slice(0, visible).map((product) => (
                 <article className="product-card" key={product.id}>
-                  <div className="image-wrap"><ProductImage product={product} />{product.featured && <span className="badge">Pilihan</span>}</div>
+                  <div className="image-wrap">
+                    <a
+                      className="product-image-link"
+                      href={`/produk/${product.id}`}
+                      aria-label={`Lihat detail ${product.name}`}
+                    >
+                      <ProductImage product={product} />
+                    </a>
+                    {product.featured && <span className="badge">Pilihan</span>}
+                  </div>
                   <div className="product-body">
                     <div className="product-meta"><span>{product.category}</span><span>{product.salesLabel} terjual</span></div>
                     <h3><a href={`/produk/${product.id}`}>{product.name}</a></h3>
