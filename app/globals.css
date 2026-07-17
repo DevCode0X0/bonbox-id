@@ -25,3 +25,31 @@
 /* Softer product cards */
 .product-card{border-radius:14px;overflow:hidden}
 .badge{background:rgba(68,32,92,.68);border:1px solid rgba(255,255,255,.24);border-radius:999px;backdrop-filter:blur(8px);box-shadow:0 3px 10px rgba(36,20,47,.12)}
+
+/* Responsive containment and branded header */
+html,body{max-width:100%;overflow-x:clip}
+img,video{max-width:100%}
+.site-header{background:linear-gradient(135deg,rgba(74,30,112,.98),rgba(128,69,198,.96) 58%,rgba(177,111,220,.94));border-bottom-color:rgba(255,255,255,.18);color:#fff;box-shadow:0 8px 24px rgba(51,20,72,.14)}
+.site-header .brand,.site-header .brand span{color:#fff}
+.site-header .brand-icon{box-shadow:0 0 0 2px rgba(255,255,255,.25),0 4px 12px rgba(36,20,47,.22)}
+.site-header nav a{color:rgba(255,255,255,.84)}
+.site-header nav a:hover{color:#fff}
+.site-header .header-cta{background:rgba(255,255,255,.94);color:#4b2d5d;border:1px solid rgba(255,255,255,.45);border-radius:999px;box-shadow:0 4px 14px rgba(36,20,47,.14)}
+.product-grid,.product-card,.product-body,.product-footer,.section-heading>*{min-width:0}
+.product-card h3 a{overflow-wrap:anywhere}
+.category-row{max-width:100%}
+
+@media(max-width:720px){
+  .site-header{gap:10px}
+  .site-header .brand{min-width:0;flex-shrink:1}
+  .products-heading{display:block}
+  .products-heading select{width:100%;max-width:none;margin-top:18px}
+  .product-footer strong{font-size:16px}
+}
+
+@media(max-width:380px){
+  .site-header{padding:0 14px}
+  .site-header .brand{font-size:18px;letter-spacing:-1px;gap:6px}
+  .site-header .brand-icon{width:29px;height:29px}
+  .site-header .header-cta{padding:10px 12px;font-size:10px}
+}
