@@ -8,3 +8,16 @@
 
 @media(max-width:1050px){.hero{grid-template-columns:1fr}.hero-art{min-height:430px}.hero-copy{padding:70px 7vw}.product-grid{grid-template-columns:repeat(3,1fr)}.about-strip{grid-template-columns:1fr 1fr}.about-strip>div:first-child{grid-column:1/-1}.detail-hero{grid-template-columns:1fr}.feature-media{height:540px}.detail-content,.video-section{grid-template-columns:1fr;gap:30px}}
 @media(max-width:720px){.site-header{height:64px;padding:0 20px}.site-header nav{display:none}.header-cta{padding:10px}.hero{min-height:auto}.hero-copy{padding:56px 22px}.hero-copy h1{font-size:52px;letter-spacing:-3px}.hero-art{min-height:390px}.art-card{width:165px;height:220px}.art-card b{font-size:29px}.card-a{left:8%}.card-b{left:46%}.category-section,.products-section{padding:54px 20px}.section-heading{display:block}.section-heading>p{margin-top:14px}.products-heading{display:flex;align-items:end;gap:18px}.products-heading h2{font-size:34px}.product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 8px}.image-wrap{height:190px}.product-body{padding:12px}.product-card h3{font-size:12px;height:54px}.product-meta span:last-child{display:none}.product-footer{display:block}.product-footer a{display:block;text-align:center;margin-top:12px}.about-strip{grid-template-columns:1fr;padding:55px 22px;gap:20px}.about-strip>div:first-child{grid-column:auto}.about-strip h2{font-size:34px}footer{grid-template-columns:1fr auto;padding:24px 20px}footer p,footer>small{grid-column:1/-1;margin:0}.admin-page{padding:24px 14px}.admin-intro{display:block}.token-box{min-width:0}.admin-intro h1{font-size:38px}.admin-product-editor summary{grid-template-columns:48px minmax(0,1fr)}.admin-product-editor summary em{display:none}.admin-thumb{width:44px;height:44px}.editor-form{grid-template-columns:1fr;padding:16px}.editor-form label,.editor-form .wide,.editor-actions{grid-column:1}.editor-actions{align-items:stretch;gap:18px;flex-direction:column}.detail-header .back-link{display:none}.breadcrumbs{padding:16px 20px;overflow:hidden}.media-gallery{padding:22px 20px}.feature-media{height:390px}.detail-copy{padding:38px 22px}.detail-copy h1{font-size:32px}.detail-highlights{grid-template-columns:1fr}.detail-content,.video-section{padding:55px 22px}.detail-content h2,.video-section h2,.detail-bottom-cta h2{font-size:34px}.detail-bottom-cta{padding:48px 22px;display:block}.detail-bottom-cta a{display:block;margin-top:24px;text-align:center}}
+
+/* BONBOX purple brand system */
+:root{--ink:#24142f;--cream:#f6f0fa;--paper:#fffbff;--orange:#8045c6;--lime:#ddbaf0;--line:#dacde3;--muted:#716778}
+.site-header{background:rgba(255,251,255,.94)}
+.brand{display:inline-flex;align-items:center;gap:9px}
+.brand-icon{width:32px;height:32px;border-radius:9px;object-fit:cover;box-shadow:0 2px 8px rgba(81,35,116,.18)}
+.footer-brand .brand-icon{width:27px;height:27px;border-radius:7px}
+.art-sun{background:#f1d5f8;border-color:rgba(54,21,77,.15)}
+.product-placeholder,.detail-placeholder{background:linear-gradient(145deg,#f3eafa,#dec5ed);color:#4b2d5d}
+.about-strip{background:#24142f}
+.benefit{border-top-color:#60426f}
+.benefit small{color:#cdbed6}
+.editor-form{background:#fffbff}

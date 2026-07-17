@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatRupiahLabel } from "../lib/format-rupiah";
+import Brand from "./brand";
 
 export type Product = {
   id: string;
@@ -81,7 +82,7 @@ export default function ProductCatalog({ initialProducts }: { initialProducts: P
   return (
     <main>
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="BONBOX beranda"><span>BON</span>BOX</a>
+        <Brand href="#top" />
         <nav aria-label="Navigasi utama">
           <a href="#kategori">Kategori</a>
           <a href="#produk">Produk</a>
@@ -152,7 +153,7 @@ export default function ProductCatalog({ initialProducts }: { initialProducts: P
 
       <section className="about-strip" id="tentang"><div><small>KENAPA BONBOX?</small><h2>Kurasi yang berguna,<br />bukan sekadar ramai.</h2></div><div className="benefit"><b>01</b><span><strong>Praktis setiap hari</strong><small>Produk dipilih untuk pekerjaan rumah yang nyata.</small></span></div><div className="benefit"><b>02</b><span><strong>Belanja tanpa ragu</strong><small>Transaksi dan pengiriman ditangani Shopee.</small></span></div></section>
 
-      <footer><a className="brand footer-brand" href="#top"><span>BON</span>BOX</a><p>Make life easy.</p><div><a href="#produk">Katalog</a><a href="/admin">Admin</a></div><small>Harga dan ketersediaan mengikuti halaman Shopee.</small></footer>
+      <footer><Brand href="#top" className="footer-brand" /><p>Make life easy.</p><div><a href="#produk">Katalog</a><a href="/admin">Admin</a></div><small>Harga dan ketersediaan mengikuti halaman Shopee.</small></footer>
     </main>
   );
 }

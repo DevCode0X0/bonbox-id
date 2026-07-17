@@ -8,6 +8,11 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: { default: "BONBOX — Make Life Easy", template: "%s | BONBOX" },
   description: "Katalog home living pilihan BONBOX dengan checkout langsung di Shopee.",
+  icons: {
+    icon: "/bonbox-icon.png",
+    shortcut: "/bonbox-icon.png",
+    apple: "/bonbox-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

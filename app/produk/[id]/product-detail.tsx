@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Product } from "../../product-catalog";
 import { formatRupiahLabel } from "../../../lib/format-rupiah";
+import Brand from "../../brand";
 
 export default function ProductDetail({ productId, initialProduct }: { productId: string; initialProduct: Product | null }) {
   const [product, setProduct] = useState<Product | null>(initialProduct);
@@ -25,12 +26,12 @@ export default function ProductDetail({ productId, initialProduct }: { productId
   const images = useMemo(() => product ? [product.imageUrl, ...(product.galleryUrls ?? [])].filter((url, index, all) => url && all.indexOf(url) === index) : [], [product]);
 
   if (!product) {
-    return <main className="detail-missing"><a className="brand" href="/"><span>BON</span>BOX</a><h1>Produk tidak ditemukan</h1><a href="/#produk">Kembali ke katalog</a></main>;
+    return <main className="detail-missing"><Brand /><h1>Produk tidak ditemukan</h1><a href="/#produk">Kembali ke katalog</a></main>;
   }
 
   return (
     <main className="detail-page">
-      <header className="site-header detail-header"><a className="brand" href="/"><span>BON</span>BOX</a><a className="back-link" href="/#produk">← Kembali ke katalog</a><a className="header-cta" href={product.affiliateUrl} target="_blank" rel="sponsored noopener">Beli di Shopee</a></header>
+      <header className="site-header detail-header"><Brand /><a className="back-link" href="/#produk">← Kembali ke katalog</a><a className="header-cta" href={product.affiliateUrl} target="_blank" rel="sponsored noopener">Beli di Shopee</a></header>
       <div className="breadcrumbs"><a href="/">Beranda</a><span>/</span><a href="/#kategori">{product.category}</a><span>/</span><b>{product.id}</b></div>
       <section className="detail-hero">
         <div className="media-gallery">
@@ -58,7 +59,7 @@ export default function ProductDetail({ productId, initialProduct }: { productId
       {product.videoUrl && <section className="video-section"><div><div className="eyebrow">VIDEO PRODUK</div><h2>Lihat produknya beraksi</h2></div><video controls preload="metadata" src={product.videoUrl}>Browser Anda tidak mendukung video.</video></section>}
 
       <section className="detail-bottom-cta"><div><small>SUDAH YAKIN?</small><h2>Lengkapi rumahmu<br />dengan BONBOX.</h2></div><a href={product.affiliateUrl} target="_blank" rel="sponsored noopener">Beli produk ini di Shopee <span>↗</span></a></section>
-      <footer><a className="brand footer-brand" href="/"><span>BON</span>BOX</a><p>Make life easy.</p><div><a href="/#produk">Katalog</a><a href="/admin">Admin</a></div><small>Harga dan ketersediaan mengikuti halaman Shopee.</small></footer>
+      <footer><Brand className="footer-brand" /><p>Make life easy.</p><div><a href="/#produk">Katalog</a><a href="/admin">Admin</a></div><small>Harga dan ketersediaan mengikuti halaman Shopee.</small></footer>
     </main>
   );
 }

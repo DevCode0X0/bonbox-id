@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Product } from "../product-catalog";
+import Brand from "../brand";
 
 type Status = { kind: "info" | "success" | "error"; text: string };
 type EditableField = "imageUrl" | "videoUrl" | "description" | "category";
@@ -54,7 +55,7 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
   return (
     <main className="admin-page">
       <div className="admin-panel">
-        <div className="admin-top"><a className="brand" href="/"><span>BON</span>BOX</a><a href="/">← Lihat katalog</a></div>
+        <div className="admin-top"><Brand /><a href="/">← Lihat katalog</a></div>
         <div className="admin-intro">
           <div><div className="eyebrow">BACKEND KATALOG</div><h1>Kelola produk</h1><p>Tambahkan feature image, galeri foto, video, dan deskripsi. Gunakan satu URL HTTPS per baris untuk galeri.</p></div>
           <div className="token-box"><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="Kunci admin" aria-label="Kunci admin" /><button type="button" onClick={() => setStatus({ kind: "info", text: token ? "Kunci siap digunakan." : "Kunci masih kosong." })}>Gunakan</button></div>
