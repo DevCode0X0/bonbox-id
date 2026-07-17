@@ -6,8 +6,29 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://bonbox.id"),
   title: { default: "BONBOX — Make Life Easy", template: "%s | BONBOX" },
   description: "Katalog home living pilihan BONBOX dengan checkout langsung di Shopee.",
+  openGraph: {
+    title: "BONBOX — Rumah lebih rapi. Hidup lebih mudah.",
+    description: "Temukan produk home living pilihan dan lanjutkan pembelian dengan aman di Shopee.",
+    url: "https://bonbox.id",
+    siteName: "BONBOX",
+    locale: "id_ID",
+    type: "website",
+    images: [{
+      url: "/og.png",
+      width: 1731,
+      height: 909,
+      alt: "BONBOX — Rumah lebih rapi. Hidup lebih mudah.",
+    }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BONBOX — Rumah lebih rapi. Hidup lebih mudah.",
+    description: "Temukan produk home living pilihan dan lanjutkan pembelian dengan aman di Shopee.",
+    images: ["/og.png"],
+  },
   icons: {
     icon: "/bonbox-icon.png",
     shortcut: "/bonbox-icon.png",

@@ -2,10 +2,38 @@ import type { Metadata } from "next";
 import products from "../../../data/products.json";
 import ProductDetail from "./product-detail";
 
-export const metadata: Metadata = {
-  title: "Detail Produk",
-  description: "Detail, foto, video, dan informasi produk BONBOX.",
-};
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const product = products.find((item) => item.id === id);
+  if (!product) return { title: "Produk tidak ditemukan" };
+
+  const description = `${product.category} pilihan dari ${product.store}. Lihat detail produk dan lanjutkan pembelian dengan aman di Shopee.`;
+  return {
+    title: product.name,
+    description,
+    alternates: { canonical: `/produk/${product.id}` },
+    openGraph: {
+      title: product.name,
+      description,
+      url: `/produk/${product.id}`,
+      siteName: "BONBOX",
+      locale: "id_ID",
+      type: "website",
+      images: [{
+        url: "/og.png",
+        width: 1731,
+        height: 909,
+        alt: "BONBOX — Rumah lebih rapi. Hidup lebih mudah.",
+      }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: product.name,
+      description,
+      images: ["/og.png"],
+    },
+  };
+}
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
