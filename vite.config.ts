@@ -3,8 +3,7 @@ import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
 
-const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
-  "00000000-0000-4000-8000-000000000000";
+const BONBOX_DATABASE_ID = "6c98a9c2-2156-40dd-9691-321d184efb93";
 
 const { d1, r2 } = hostingConfig;
 
@@ -12,14 +11,15 @@ const { d1, r2 } = hostingConfig;
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
 const localBindingConfig = {
+  name: "bonbox-id",
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
   d1_databases: d1
     ? [
         {
           binding: d1,
-          database_name: "site-creator-d1",
-          database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+          database_name: "bonbox-db",
+          database_id: BONBOX_DATABASE_ID,
         },
       ]
     : [],
