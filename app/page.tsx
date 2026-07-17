@@ -8,5 +8,6 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <ProductCatalog initialProducts={products} />;
+  const catalog = products.map((product) => ({ ...product, galleryUrls: [], videoUrl: "", description: "" }));
+  return <ProductCatalog initialProducts={catalog} />;
 }

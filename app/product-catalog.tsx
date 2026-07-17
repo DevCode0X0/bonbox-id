@@ -15,6 +15,9 @@ export type Product = {
   productUrl: string;
   affiliateUrl: string;
   imageUrl: string;
+  galleryUrls: string[];
+  videoUrl: string;
+  description: string;
   featured: boolean;
 };
 
@@ -139,9 +142,9 @@ export default function ProductCatalog({ initialProducts }: { initialProducts: P
                   <div className="image-wrap"><ProductImage product={product} />{product.featured && <span className="badge">Pilihan</span>}</div>
                   <div className="product-body">
                     <div className="product-meta"><span>{product.category}</span><span>{product.salesLabel} terjual</span></div>
-                    <h3>{product.name}</h3>
+                    <h3><a href={`/produk/${product.id}`}>{product.name}</a></h3>
                     <p className="store-name">{product.store}</p>
-                    <div className="product-footer"><div><small>Mulai</small><strong>{rupiahLabel(product.priceLabel)}</strong></div><a href={product.affiliateUrl} target="_blank" rel="sponsored noopener">Beli di Shopee <span>↗</span></a></div>
+                    <div className="product-footer"><div><small>Mulai</small><strong>{rupiahLabel(product.priceLabel)}</strong></div><a href={`/produk/${product.id}`}>Lihat detail <span>→</span></a></div>
                   </div>
                 </article>
               ))}
