@@ -57,3 +57,23 @@ img,video{max-width:100%}
   .site-header .brand-icon{width:29px;height:29px}
   .site-header .header-cta{padding:10px 12px;font-size:10px}
 }
+
+/* Full product image and touch zoom viewer */
+.feature-media-button{position:relative;width:100%;height:100%;border:0;padding:0;background:#fff;display:grid;place-items:center;cursor:zoom-in;overflow:hidden}
+.feature-media-button img{display:block;width:100%;height:100%;object-fit:contain}
+.zoom-hint{position:absolute;right:12px;bottom:12px;padding:8px 11px;border-radius:999px;background:rgba(36,20,47,.78);color:#fff;font-size:10px;font-weight:750;letter-spacing:.2px;box-shadow:0 4px 14px rgba(36,20,47,.18);pointer-events:none}
+.image-viewer{position:fixed;inset:0;z-index:1000;background:rgba(20,10,27,.96);color:#fff;display:grid;grid-template-rows:auto minmax(0,1fr) auto;padding:max(14px,env(safe-area-inset-top)) 14px max(18px,env(safe-area-inset-bottom))}
+.viewer-top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:12px;font-size:11px;color:rgba(255,255,255,.72)}
+.viewer-top button,.viewer-controls button{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;cursor:pointer}
+.viewer-top button{width:42px;height:42px;flex:0 0 auto;font-size:28px;line-height:1}
+.zoom-stage{min-width:0;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none;cursor:grab}
+.zoom-stage:active{cursor:grabbing}
+.zoom-stage img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;transform-origin:center;will-change:transform;pointer-events:none}
+.viewer-controls{display:flex;justify-content:center;gap:10px;padding-top:14px}
+.viewer-controls button{min-width:48px;height:42px;padding:0 16px;font-size:18px;font-weight:800}
+.viewer-controls button:nth-child(2){min-width:88px;font-size:12px}
+
+@media(max-width:720px){
+  .feature-media{height:auto;aspect-ratio:1/1}
+  .zoom-hint{right:10px;bottom:10px}
+}
