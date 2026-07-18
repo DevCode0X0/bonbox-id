@@ -162,7 +162,7 @@ export default function ProductCatalog({ initialProducts }: { initialProducts: P
 
       <section className="about-strip" id="tentang"><div><small>KENAPA BONBOX?</small><h2>Kurasi yang berguna,<br />bukan sekadar ramai.</h2></div><div className="benefit"><b>01</b><span><strong>Praktis setiap hari</strong><small>Produk dipilih untuk pekerjaan rumah yang nyata.</small></span></div><div className="benefit"><b>02</b><span><strong>Belanja tanpa ragu</strong><small>Transaksi dan pengiriman ditangani Shopee.</small></span></div></section>
 
-      <footer><Brand href="#top" className="footer-brand" /><p>Make life easy.</p><div><a href="#produk">Katalog</a><a href="/admin">Admin</a></div><small>Harga dan ketersediaan mengikuti halaman Shopee.</small></footer>
+      <footer><Brand href="#top" className="footer-brand" /><p>Make life easy.</p><div><a href="#produk">Katalog</a></div><small>Harga dan ketersediaan mengikuti halaman Shopee.</small></footer>
     </main>
   );
 }

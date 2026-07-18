@@ -137,7 +137,7 @@ export default function ProductDetail({ productId, initialProduct }: { productId
       {product.videoUrl && <section className="video-section"><div><div className="eyebrow">VIDEO PRODUK</div><h2>Lihat produknya beraksi</h2></div><video controls preload="metadata" src={product.videoUrl}>Browser Anda tidak mendukung video.</video></section>}
 
       <section className="detail-bottom-cta"><div><small>SUDAH YAKIN?</small><h2>Lengkapi rumahmu<br />dengan BONBOX.</h2></div><a href={product.affiliateUrl} target="_blank" rel="sponsored noopener">Beli produk ini di Shopee <span>↗</span></a></section>
-      <footer><Brand className="footer-brand" /><p>Make life easy.</p><div><a href="/#produk">Katalog</a><a href="/admin">Admin</a></div><small>Harga dan ketersediaan mengikuti halaman Shopee.</small></footer>
+      <footer><Brand className="footer-brand" /><p>Make life easy.</p><div><a href="/#produk">Katalog</a></div><small>Harga dan ketersediaan mengikuti halaman Shopee.</small></footer>
       {viewerOpen && activeImage && !imageFailed && <div className="image-viewer" role="dialog" aria-modal="true" aria-label="Perbesar foto produk">
         <div className="viewer-top"><span>Cubit untuk zoom · geser untuk melihat detail</span><button type="button" onClick={() => setViewerOpen(false)} aria-label="Tutup foto">×</button></div>
         <div className="zoom-stage" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerEnd} onPointerCancel={handlePointerEnd} onWheel={handleWheel} onDoubleClick={() => changeZoom(zoom > 1 ? 1 : 2)}>
