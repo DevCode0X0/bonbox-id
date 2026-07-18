@@ -62,6 +62,18 @@ export const getProductById = cache(async (id: string): Promise<ServerProduct | 
   }
 });
 
+export const getActiveProducts = cache(async (): Promise<ServerProduct[]> => {
+  const fallback = seedProducts.map((product) => ({ ...product, galleryUrls: [], videoUrl: "", description: "" }));
+  const { DB } = env as unknown as RuntimeEnv;
+  if (!DB) return fallback;
+  try {
+    const result = await DB.prepare("SELECT * FROM products WHERE active = 1 ORDER BY featured DESC, rowid ASC").all<Record<string, unknown>>();
+    return result.results.map(mapProduct);
+  } catch {
+    return fallback;
+  }
+});
+
 export type SitemapProduct = {
   id: string;
   images: string[];
