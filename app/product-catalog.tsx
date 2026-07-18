@@ -39,7 +39,7 @@ function ProductImage({ product }: { product: Product }) {
   );
 }
 
-export default function ProductCatalog({ initialProducts }: { initialProducts: Product[] }) {
+export default function ProductCatalog({ initialProducts, initialHeroProducts }: { initialProducts: Product[]; initialHeroProducts: Product[] }) {
   const [catalog, setCatalog] = useState(initialProducts);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
@@ -74,8 +74,6 @@ export default function ProductCatalog({ initialProducts }: { initialProducts: P
     return [...filtered].sort((a, b) => Number(b.featured) - Number(a.featured));
   }, [catalog, query, category, sort]);
 
-  const heroProducts = useMemo(() => catalog.filter((product) => product.imageUrl).slice(0, 3), [catalog]);
-
   function chooseCategory(value: string) {
     setCategory(value);
     setVisible(PAGE_SIZE);
@@ -108,14 +106,14 @@ export default function ProductCatalog({ initialProducts }: { initialProducts: P
         <div className="hero-art" aria-label="Produk pilihan BONBOX">
           <div className="hero-blob blob-a" />
           <div className="hero-blob blob-b" />
-          {heroProducts.map((product, index) => (
+          {initialHeroProducts.map((product, index) => (
             <a className={`hero-product hero-product-${index + 1}`} href={`/produk/${product.id}`} key={product.id} aria-label={`Lihat ${product.name}`}>
               <span className="hero-product-number">0{index + 1}</span>
               <img src={product.imageUrl} alt={product.name} />
               <span className="hero-product-caption"><small>{product.category}</small><b>{formatRupiahLabel(product.priceLabel)}</b></span>
             </a>
           ))}
-          {!heroProducts.length && <div className="hero-art-fallback"><b>BONBOX</b><span>Produk pilihan untuk rumah yang lebih mudah.</span></div>}
+          {!initialHeroProducts.length && <div className="hero-art-fallback"><b>BONBOX</b><span>Produk pilihan untuk rumah yang lebih mudah.</span></div>}
           <div className="hero-art-note"><span>ETALASE PILIHAN</span><b>Sentuh produk untuk melihat detail</b></div>
         </div>
       </section>

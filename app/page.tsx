@@ -7,7 +7,19 @@ export const metadata: Metadata = {
   description: "Temukan produk home living BONBOX dan lanjutkan pembelian dengan aman di Shopee.",
 };
 
+function pickRandomHeroProducts<T extends { imageUrl: string }>(products: T[], limit = 3) {
+  const candidates = products.filter((product) => product.imageUrl);
+
+  for (let index = candidates.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [candidates[index], candidates[randomIndex]] = [candidates[randomIndex], candidates[index]];
+  }
+
+  return candidates.slice(0, limit);
+}
+
 export default async function Home() {
   const catalog = await getActiveProducts();
-  return <ProductCatalog initialProducts={catalog} />;
+  const initialHeroProducts = pickRandomHeroProducts(catalog);
+  return <ProductCatalog initialProducts={catalog} initialHeroProducts={initialHeroProducts} />;
 }
