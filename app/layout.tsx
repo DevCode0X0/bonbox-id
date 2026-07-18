@@ -17,9 +17,10 @@ export const metadata: Metadata = {
     locale: "id_ID",
     type: "website",
     images: [{
-      url: "/og.png",
-      width: 1731,
-      height: 909,
+      url: "/og-whatsapp.jpg?v=20260718",
+      width: 1200,
+      height: 630,
+      type: "image/jpeg",
       alt: "BONBOX — Rumah lebih rapi. Hidup lebih mudah.",
     }],
   },
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "BONBOX — Rumah lebih rapi. Hidup lebih mudah.",
     description: "Temukan produk home living pilihan dan lanjutkan pembelian dengan aman di Shopee.",
-    images: ["/og.png"],
+    images: ["/og-whatsapp.jpg?v=20260718"],
   },
   icons: {
     icon: "/bonbox-icon.png",
