@@ -3,6 +3,18 @@ import seedProducts from "../../../data/products.json";
 
 type RuntimeEnv = { DB?: D1Database; ADMIN_TOKEN?: string };
 
+type CsvProductUpdate = {
+  id: string;
+  name: string;
+  priceLabel: string;
+  salesLabel: string;
+  store: string;
+  commissionRate: string;
+  commissionLabel: string;
+  productUrl: string;
+  affiliateUrl: string;
+};
+
 function runtime() {
   return env as unknown as RuntimeEnv;
 }
@@ -95,4 +107,64 @@ export async function PUT(request: Request) {
     .bind(imageUrl, JSON.stringify(galleryUrls), videoUrl, payload.description?.trim() ?? "", payload.category?.trim() ?? "", new Date().toISOString(), payload.id).run();
   if (!result.meta.changes) return Response.json({ error: "Produk tidak ditemukan." }, { status: 404 });
   return Response.json({ ok: true });
+}
+
+export async function PATCH(request: Request) {
+  const { DB, ADMIN_TOKEN } = runtime();
+  if (!DB) return Response.json({ error: "Database belum aktif." }, { status: 503 });
+  if (!ADMIN_TOKEN || request.headers.get("x-admin-token") !== ADMIN_TOKEN) {
+    return Response.json({ error: "Kunci admin tidak valid." }, { status: 401 });
+  }
+
+  let payload: { products?: CsvProductUpdate[] };
+  try {
+    payload = await request.json() as { products?: CsvProductUpdate[] };
+  } catch {
+    return Response.json({ error: "Data CSV tidak valid." }, { status: 400 });
+  }
+
+  if (!Array.isArray(payload.products) || !payload.products.length) {
+    return Response.json({ error: "Tidak ada pembaruan produk untuk diterapkan." }, { status: 400 });
+  }
+  if (payload.products.length > 500) {
+    return Response.json({ error: "Maksimal 500 produk dalam sekali pembaruan." }, { status: 400 });
+  }
+
+  const uniqueProducts = new Map<string, CsvProductUpdate>();
+  for (const product of payload.products) {
+    const normalized = {
+      id: String(product.id ?? "").trim().slice(0, 80),
+      name: String(product.name ?? "").trim().slice(0, 1000),
+      priceLabel: String(product.priceLabel ?? "").trim().slice(0, 80),
+      salesLabel: String(product.salesLabel ?? "").trim().slice(0, 80),
+      store: String(product.store ?? "").trim().slice(0, 300),
+      commissionRate: String(product.commissionRate ?? "").trim().slice(0, 80),
+      commissionLabel: String(product.commissionLabel ?? "").trim().slice(0, 80),
+      productUrl: String(product.productUrl ?? "").trim().slice(0, 2000),
+      affiliateUrl: String(product.affiliateUrl ?? "").trim().slice(0, 2000),
+    };
+    if (!normalized.id || !normalized.name) {
+      return Response.json({ error: "Setiap baris CSV harus memiliki ID dan nama produk." }, { status: 400 });
+    }
+    if (!/^https:\/\//i.test(normalized.productUrl) || !/^https:\/\//i.test(normalized.affiliateUrl)) {
+      return Response.json({ error: `Link produk ${normalized.id} harus menggunakan HTTPS.` }, { status: 400 });
+    }
+    uniqueProducts.set(normalized.id, normalized);
+  }
+
+  await ensureProducts(DB);
+  const products = [...uniqueProducts.values()];
+  const now = new Date().toISOString();
+  let updated = 0;
+
+  for (let offset = 0; offset < products.length; offset += 50) {
+    const chunk = products.slice(offset, offset + 50);
+    const results = await DB.batch(chunk.map((product) => DB.prepare(`UPDATE products SET
+      name = ?, price_label = ?, sales_label = ?, store = ?, commission_rate = ?, commission_label = ?, product_url = ?, affiliate_url = ?, updated_at = ?
+      WHERE id = ?`)
+      .bind(product.name, product.priceLabel, product.salesLabel, product.store, product.commissionRate, product.commissionLabel, product.productUrl, product.affiliateUrl, now, product.id)));
+    updated += results.reduce((total, result) => total + Number(result.meta.changes ?? 0), 0);
+  }
+
+  return Response.json({ ok: true, received: products.length, updated, skipped: products.length - updated, updatedAt: now });
 }
