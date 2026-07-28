@@ -5,6 +5,7 @@ import { getActiveProducts } from "../lib/product-server";
 export const metadata: Metadata = {
   title: "Home living pilihan untuk hidup lebih mudah",
   description: "Temukan produk home living BONBOX dan lanjutkan pembelian dengan aman di Shopee.",
+  alternates: { canonical: "/" },
 };
 
 function pickRandomHeroProducts<T extends { imageUrl: string }>(products: T[], limit = 3) {

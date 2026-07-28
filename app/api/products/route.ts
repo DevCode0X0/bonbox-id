@@ -60,11 +60,12 @@ async function ensureProducts(db: D1Database) {
 function mapProduct(row: Record<string, unknown>) {
   let galleryUrls: string[] = [];
   try { galleryUrls = JSON.parse(String(row.gallery_urls ?? "[]")); } catch { galleryUrls = []; }
+  const seedImage = seedProducts.find((product) => String(product.id) === String(row.id))?.imageUrl ?? "";
   return {
     id: String(row.id), slug: String(row.id), name: String(row.name), category: String(row.category),
     priceLabel: String(row.price_label), salesLabel: String(row.sales_label), store: String(row.store),
     commissionRate: String(row.commission_rate), commissionLabel: String(row.commission_label),
-    productUrl: String(row.product_url), affiliateUrl: String(row.affiliate_url), imageUrl: String(row.image_url),
+    productUrl: String(row.product_url), affiliateUrl: String(row.affiliate_url), imageUrl: String(row.image_url) || seedImage,
     galleryUrls, videoUrl: String(row.video_url ?? ""), description: String(row.description ?? ""),
     featured: Boolean(row.featured), active: Boolean(row.active), updatedAt: String(row.updated_at),
   };
