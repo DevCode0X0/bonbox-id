@@ -23,6 +23,18 @@ export type ServerProduct = {
   featured: boolean;
 };
 
+const seedProductById = new Map(seedProducts.map((product) => [String(product.id), product]));
+
+function mergeProductWithSeed(product: ServerProduct): ServerProduct {
+  const seedProduct = seedProductById.get(product.id);
+  if (!seedProduct) return product;
+
+  return {
+    ...product,
+    imageUrl: product.imageUrl || seedProduct.imageUrl,
+  };
+}
+
 function fallbackProduct(id: string): ServerProduct | null {
   const product = seedProducts.find((item) => item.id === id);
   return product ? { ...product, galleryUrls: [], videoUrl: "", description: "" } : null;
@@ -56,7 +68,7 @@ export const getProductById = cache(async (id: string): Promise<ServerProduct | 
   if (!DB) return fallbackProduct(id);
   try {
     const row = await DB.prepare("SELECT * FROM products WHERE id = ? AND active = 1").bind(id).first<Record<string, unknown>>();
-    return row ? mapProduct(row) : null;
+    return row ? mergeProductWithSeed(mapProduct(row)) : null;
   } catch {
     return fallbackProduct(id);
   }
@@ -68,7 +80,7 @@ export const getActiveProducts = cache(async (): Promise<ServerProduct[]> => {
   if (!DB) return fallback;
   try {
     const result = await DB.prepare("SELECT * FROM products WHERE active = 1 ORDER BY featured DESC, rowid ASC").all<Record<string, unknown>>();
-    return result.results.map(mapProduct);
+    return result.results.map((row) => mergeProductWithSeed(mapProduct(row)));
   } catch {
     return fallback;
   }
@@ -89,7 +101,8 @@ export const getSitemapProducts = cache(async (): Promise<SitemapProduct[]> => {
     return result.results.map((row) => {
       let galleryUrls: string[] = [];
       try { galleryUrls = JSON.parse(String(row.gallery_urls ?? "[]")); } catch { galleryUrls = []; }
-      const images = [String(row.image_url ?? ""), ...galleryUrls].filter((url, index, all) => url && all.indexOf(url) === index);
+      const seedImage = seedProductById.get(String(row.id))?.imageUrl ?? "";
+      const images = [String(row.image_url ?? "") || seedImage, ...galleryUrls].filter((url, index, all) => url && all.indexOf(url) === index);
       return { id: String(row.id), images, updatedAt: row.updated_at ? String(row.updated_at) : undefined };
     });
   } catch {
