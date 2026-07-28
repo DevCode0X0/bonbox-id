@@ -47,12 +47,13 @@ test("the product dataset maps to stable crawlable category pages", async () => 
 });
 
 test("homepage, product breadcrumbs, and sitemap link to category routes", async () => {
-  const [homepage, catalog, detail, sitemap, productServer] = await Promise.all([
+  const [homepage, catalog, detail, sitemap, productServer, productApi] = await Promise.all([
     source("app/page.tsx"),
     source("app/product-catalog.tsx"),
     source("app/produk/[id]/product-detail.tsx"),
     source("app/sitemap.ts"),
     source("lib/product-server.ts"),
+    source("app/api/products/route.ts"),
   ]);
 
   assert.match(homepage, /alternates:\s*\{\s*canonical:\s*"\/"/);
@@ -61,6 +62,7 @@ test("homepage, product breadcrumbs, and sitemap link to category routes", async
   assert.match(sitemap, /categoryPages/);
   assert.match(sitemap, /\?page=\$\{index \+ 1\}/);
   assert.match(productServer, /mergeProductWithSeed\(mapProduct\(row\)\)/);
+  assert.match(productApi, /imageUrl:\s*String\(row\.image_url\)\s*\|\|\s*seedImage/);
 });
 
 test("category route provides crawlable pagination and self canonicals", async () => {
