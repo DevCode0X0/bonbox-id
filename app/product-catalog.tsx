@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatRupiahLabel } from "../lib/format-rupiah";
+import { categoryToSlug } from "../lib/product-categories";
 import Brand from "./brand";
 
 export type Product = {
@@ -42,7 +43,6 @@ function ProductImage({ product }: { product: Product }) {
 export default function ProductCatalog({ initialProducts, initialHeroProducts }: { initialProducts: Product[]; initialHeroProducts: Product[] }) {
   const [catalog, setCatalog] = useState(initialProducts);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("Semua");
   const [sort, setSort] = useState("popular");
   const [visible, setVisible] = useState(PAGE_SIZE);
 
@@ -63,21 +63,15 @@ export default function ProductCatalog({ initialProducts, initialHeroProducts }:
   const products = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     const filtered = catalog.filter((product) => {
-      const matchesCategory = category === "Semua" || product.category === category;
       const matchesQuery = !normalized || `${product.name} ${product.store} ${product.category}`.toLowerCase().includes(normalized);
-      return matchesCategory && matchesQuery;
+      return matchesQuery;
     });
     if (sort === "commission") {
       return [...filtered].sort((a, b) => Number.parseFloat(b.commissionRate.replace(",", ".")) - Number.parseFloat(a.commissionRate.replace(",", ".")));
     }
     if (sort === "name") return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
     return [...filtered].sort((a, b) => Number(b.featured) - Number(a.featured));
-  }, [catalog, query, category, sort]);
-
-  function chooseCategory(value: string) {
-    setCategory(value);
-    setVisible(PAGE_SIZE);
-  }
+  }, [catalog, query, sort]);
 
   return (
     <main>
@@ -122,16 +116,20 @@ export default function ProductCatalog({ initialProducts, initialHeroProducts }:
         <div className="section-heading"><div><small>JELAJAHI</small><h2>Belanja per kategori</h2></div><p>Temukan kebutuhan rumah tanpa harus menggulir terlalu jauh.</p></div>
         <div className="category-row">
           {categories.map((item, index) => (
-            <button className={category === item ? "category active" : "category"} onClick={() => chooseCategory(item)} key={item}>
+            <a
+              className={item === "Semua" ? "category active" : "category"}
+              href={item === "Semua" ? "#produk" : `/kategori/${categoryToSlug(item)}`}
+              key={item}
+            >
               <span>{String(index + 1).padStart(2, "0")}</span><b>{item}</b><small>{item === "Semua" ? catalog.length : catalog.filter((p) => p.category === item).length} produk</small>
-            </button>
+            </a>
           ))}
         </div>
       </section>
 
       <section className="products-section" id="produk">
         <div className="section-heading products-heading">
-          <div><small>KATALOG PILIHAN</small><h2>{category === "Semua" ? "Produk populer" : category}</h2></div>
+          <div><small>KATALOG PILIHAN</small><h2>Produk populer</h2></div>
           <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Urutkan produk">
             <option value="popular">Paling populer</option>
             <option value="commission">Komisi tertinggi</option>
