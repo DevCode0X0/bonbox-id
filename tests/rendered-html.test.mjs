@@ -27,6 +27,11 @@ test("the product dataset maps to stable crawlable category pages", async () => 
   }
 
   assert.equal(products.length, 100);
+  assert.equal(
+    products.filter((product) => product.imageUrl).length,
+    40,
+    "The repository fallback must retain the product images available in production",
+  );
   assert.deepEqual(
     [...categories].map(([name, count]) => ({
       name,
