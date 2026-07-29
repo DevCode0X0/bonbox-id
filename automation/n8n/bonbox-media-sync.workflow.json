@@ -36,7 +36,7 @@
               {
                 "id": "b0ea18ac-e2fd-437f-ab1e-03a4215fd42f",
                 "name": "batchSize",
-                "value": "={{ Number($env.BONBOX_BATCH_SIZE || 3) }}",
+                "value": "={{ Number($env.BONBOX_BATCH_SIZE || 1) }}",
                 "type": "number"
               }
             ]
@@ -64,7 +64,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const response = $input.first().json;\nconst batchSize = Math.max(1, Number($('Konfigurasi').first().json.batchSize || 3));\nconst products = Array.isArray(response.products) ? response.products : [];\nconst candidates = products\n  .filter((product) => !String(product.imageUrl || '').trim())\n  .slice(0, batchSize);\n\nreturn candidates.map((product) => ({ json: product }));"
+          "jsCode": "const response = $input.first().json;\nconst batchSize = Math.max(1, Number($('Konfigurasi').first().json.batchSize || 1));\nconst products = Array.isArray(response.products) ? response.products : [];\nconst candidates = products\n  .filter((product) => !String(product.imageUrl || '').trim())\n  .slice(0, batchSize);\n\nreturn candidates.map((product) => ({ json: product }));"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -148,7 +148,7 @@
       },
       {
         "parameters": {
-          "content": "## BONBOX media sync\n\nWorkflow ini memproses maksimal 3 produk tanpa foto setiap 15 menit.\n\n1. Membaca produk dari Bonbox.\n2. Mengambil galeri Shopee.\n3. Mendeteksi keberadaan video.\n4. Menyalin media ke penyimpanan Bonbox.\n5. Menyimpan daftar video yang masih menunggu akses browser Shopee.\n\nAktifkan hanya setelah satu pengujian manual berhasil.",
+          "content": "## BONBOX media sync\n\nWorkflow ini memproses 1 produk tanpa foto setiap 15 menit agar Shopee tidak menerima permintaan bersamaan.\n\n1. Membaca produk dari Bonbox.\n2. Mengambil galeri Shopee.\n3. Mendeteksi keberadaan video.\n4. Menyalin media ke penyimpanan Bonbox.\n5. Menyimpan daftar video yang masih menunggu akses browser Shopee.\n\nAktifkan hanya setelah satu pengujian manual berhasil.",
           "height": 300,
           "width": 420,
           "color": 5

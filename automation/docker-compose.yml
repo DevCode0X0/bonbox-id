@@ -13,9 +13,10 @@ services:
       BONBOX_AUTOMATION_TOKEN: ${BONBOX_AUTOMATION_TOKEN}
       BONBOX_EXTRACTOR_URL: http://bonbox-extractor:3000
       BONBOX_EXTRACTOR_TOKEN: ${BONBOX_EXTRACTOR_TOKEN}
-      BONBOX_BATCH_SIZE: ${BONBOX_BATCH_SIZE:-3}
+      BONBOX_BATCH_SIZE: ${BONBOX_BATCH_SIZE:-1}
     volumes:
       - n8n_data:/home/node/.n8n
+      - ./n8n:/workflows:ro
     depends_on:
       bonbox-extractor:
         condition: service_healthy
