@@ -17,6 +17,7 @@ type ImportedMedia = {
   url: string;
   key: string;
   contentType: string;
+  contentHash: string;
   size?: number;
 };
 
@@ -86,7 +87,8 @@ async function importMedia(
   kind: "image" | "video",
   index: number,
   origin: string,
-): Promise<ImportedMedia> {
+  knownHashes?: Set<string>,
+): Promise<ImportedMedia | null> {
   const response = await fetch(sourceUrl, {
     headers: {
       accept: kind === "image" ? "image/avif,image/webp,image/apng,image/*,*/*;q=0.8" : "video/*,*/*;q=0.8",
@@ -104,10 +106,17 @@ async function importMedia(
   const maxBytes = kind === "image" ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
   if (sizeHeader > maxBytes) throw new Error(`${kind === "image" ? "Gambar" : "Video"} melebihi batas ukuran.`);
 
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.byteLength > maxBytes) throw new Error(`${kind === "image" ? "Gambar" : "Video"} melebihi batas ukuran.`);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const contentHash = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  if (knownHashes?.has(contentHash)) return null;
+  knownHashes?.add(contentHash);
+
   const extension = extensionFor(contentType, response.url || sourceUrl);
   const sequence = String(index + 1).padStart(2, "0");
   const key = `products/${productId}/${kind}-${sequence}.${extension}`;
-  await bucket.put(key, response.body, {
+  await bucket.put(key, bytes, {
     httpMetadata: {
       contentType,
       cacheControl: "public, max-age=31536000, immutable",
@@ -123,7 +132,8 @@ async function importMedia(
     url: `${origin}/media/${key}`,
     key,
     contentType,
-    size: sizeHeader || undefined,
+    contentHash,
+    size: bytes.byteLength,
   };
 }
 
@@ -178,10 +188,14 @@ export async function POST(request: Request) {
   const origin = new URL(request.url).origin;
   const errors: Array<{ kind: string; sourceUrl: string; error: string }> = [];
   const importedImages: ImportedMedia[] = [];
+  const imageHashes = new Set<string>();
+  const skippedDuplicateImages: string[] = [];
 
   for (let index = 0; index < imageUrls.length; index += 1) {
     try {
-      importedImages.push(await importMedia(MEDIA, id, imageUrls[index], "image", index, origin));
+      const imported = await importMedia(MEDIA, id, imageUrls[index], "image", importedImages.length, origin, imageHashes);
+      if (imported) importedImages.push(imported);
+      else skippedDuplicateImages.push(imageUrls[index]);
     } catch (error) {
       errors.push({
         kind: "image",
@@ -213,6 +227,13 @@ export async function POST(request: Request) {
   const videoUrl = importedVideo?.url || String(existing.video_url ?? "");
   const updatedAt = new Date().toISOString();
 
+  const currentImageKeys = new Set(importedImages.map((media) => media.key));
+  const previousImages = await MEDIA.list({ prefix: `products/${id}/image-` });
+  const staleImageKeys = previousImages.objects
+    .map((object) => object.key)
+    .filter((key) => !currentImageKeys.has(key));
+  if (staleImageKeys.length) await MEDIA.delete(staleImageKeys);
+
   await DB.prepare("UPDATE products SET image_url = ?, gallery_urls = ?, video_url = ?, updated_at = ? WHERE id = ?")
     .bind(imageUrl, JSON.stringify(galleryUrls), videoUrl, updatedAt, id)
     .run();
@@ -226,6 +247,7 @@ export async function POST(request: Request) {
     videoUrl,
     importedImages,
     importedVideo,
+    skippedDuplicateImages,
     errors,
     updatedAt,
   });
