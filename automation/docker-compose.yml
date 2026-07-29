@@ -1,0 +1,54 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.29.8
+    container_name: n8n
+    ports:
+      - "5678:5678"
+    environment:
+      GENERIC_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
+      N8N_RELEASE_TYPE: stable
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      BONBOX_API_URL: ${BONBOX_API_URL}
+      BONBOX_AUTOMATION_TOKEN: ${BONBOX_AUTOMATION_TOKEN}
+      BONBOX_EXTRACTOR_URL: http://bonbox-extractor:3000
+      BONBOX_EXTRACTOR_TOKEN: ${BONBOX_EXTRACTOR_TOKEN}
+      BONBOX_BATCH_SIZE: ${BONBOX_BATCH_SIZE:-3}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      bonbox-extractor:
+        condition: service_healthy
+    networks:
+      - bonbox-automation
+    restart: unless-stopped
+
+  bonbox-extractor:
+    build:
+      context: ./extractor
+    container_name: bonbox-extractor
+    environment:
+      EXTRACTOR_TOKEN: ${BONBOX_EXTRACTOR_TOKEN}
+      PORT: "3000"
+      MAX_CONCURRENCY: "1"
+      NAVIGATION_TIMEOUT_MS: "90000"
+    expose:
+      - "3000"
+    shm_size: "2gb"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - bonbox-automation
+    restart: unless-stopped
+
+networks:
+  bonbox-automation:
+    name: bonbox-automation
+
+volumes:
+  n8n_data:
+    external: true

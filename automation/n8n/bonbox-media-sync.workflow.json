@@ -1,0 +1,204 @@
+[
+  {
+    "id": "bonboxMediaSync01",
+    "name": "BONBOX - Sinkronisasi Foto dan Video Shopee",
+    "active": false,
+    "nodes": [
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [-520, 160],
+        "id": "8f96b109-30a8-4e0c-b01b-1bed6a5ed035",
+        "name": "Jalankan Manual"
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes",
+                "minutesInterval": 15
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [-520, 360],
+        "id": "226bf0eb-5d5a-4f7e-bc4e-d1103194cb0b",
+        "name": "Setiap 15 Menit"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "b0ea18ac-e2fd-437f-ab1e-03a4215fd42f",
+                "name": "batchSize",
+                "value": "={{ Number($env.BONBOX_BATCH_SIZE || 3) }}",
+                "type": "number"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [-280, 260],
+        "id": "061fba45-2426-4816-89dc-ae5ed0a35a41",
+        "name": "Konfigurasi"
+      },
+      {
+        "parameters": {
+          "url": "={{ $env.BONBOX_API_URL + '/api/products' }}",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [-40, 260],
+        "id": "270d1378-1567-455e-b379-23b025b5afee",
+        "name": "Ambil Produk Bonbox"
+      },
+      {
+        "parameters": {
+          "jsCode": "const response = $input.first().json;\nconst batchSize = Math.max(1, Number($('Konfigurasi').first().json.batchSize || 3));\nconst products = Array.isArray(response.products) ? response.products : [];\nconst candidates = products\n  .filter((product) => !String(product.imageUrl || '').trim())\n  .slice(0, batchSize);\n\nreturn candidates.map((product) => ({ json: product }));"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [200, 260],
+        "id": "713e6ea3-84d7-4f1c-a56a-b4400b67ec7b",
+        "name": "Pilih Produk Tanpa Foto"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.BONBOX_EXTRACTOR_URL + '/extract' }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ 'Bearer ' + $env.BONBOX_EXTRACTOR_TOKEN }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ productId: $json.id, url: $json.productUrl }) }}",
+          "options": {
+            "timeout": 120000
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [440, 260],
+        "id": "f495c91a-da73-4bfb-acfb-02dde37a61bd",
+        "name": "Ambil Media Shopee"
+      },
+      {
+        "parameters": {
+          "jsCode": "const state = $getWorkflowStaticData('global');\nstate.failures = state.failures || {};\nstate.videoPending = state.videoPending || {};\n\nconst successful = [];\nfor (const item of $input.all()) {\n  const media = item.json;\n  if (!media.ok || !Array.isArray(media.images) || !media.images.length) {\n    state.failures[media.productId || 'unknown'] = {\n      reason: media.error || 'Foto produk tidak ditemukan',\n      checkedAt: new Date().toISOString(),\n    };\n    continue;\n  }\n  delete state.failures[media.productId];\n  if (media.videoPending) {\n    state.videoPending[media.productId] = {\n      productUrl: media.requestedUrl,\n      checkedAt: new Date().toISOString(),\n    };\n  } else {\n    delete state.videoPending[media.productId];\n  }\n  successful.push({ json: media });\n}\n\nreturn successful;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [680, 260],
+        "id": "e3307988-5302-4186-8669-67773dab20bd",
+        "name": "Validasi Hasil Media"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.BONBOX_API_URL + '/api/automation/media-sync' }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-automation-token",
+                "value": "={{ $env.BONBOX_AUTOMATION_TOKEN }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ id: $json.productId, imageUrls: $json.images, videoUrls: $json.videos }) }}",
+          "options": {
+            "timeout": 300000
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [920, 260],
+        "id": "31668af4-440e-4784-a754-8cab3611b343",
+        "name": "Simpan Media ke Bonbox"
+      },
+      {
+        "parameters": {
+          "jsCode": "return $input.all().map((item) => ({\n  json: {\n    ok: Boolean(item.json.ok),\n    productId: item.json.id,\n    imageUrl: item.json.imageUrl,\n    galleryCount: Array.isArray(item.json.galleryUrls) ? item.json.galleryUrls.length : 0,\n    videoUrl: item.json.videoUrl || '',\n    warningCount: Array.isArray(item.json.errors) ? item.json.errors.length : 0,\n    completedAt: new Date().toISOString(),\n  },\n}));"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [1160, 260],
+        "id": "02d1e04d-c2e8-4568-8167-e26710aa7c47",
+        "name": "Ringkasan"
+      },
+      {
+        "parameters": {
+          "content": "## BONBOX media sync\n\nWorkflow ini memproses maksimal 3 produk tanpa foto setiap 15 menit.\n\n1. Membaca produk dari Bonbox.\n2. Mengambil galeri Shopee.\n3. Mendeteksi keberadaan video.\n4. Menyalin media ke penyimpanan Bonbox.\n5. Menyimpan daftar video yang masih menunggu akses browser Shopee.\n\nAktifkan hanya setelah satu pengujian manual berhasil.",
+          "height": 300,
+          "width": 420,
+          "color": 5
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [-40, -140],
+        "id": "dc0c92c4-e5bf-4e3d-ae6f-18ab853a0528",
+        "name": "Petunjuk"
+      }
+    ],
+    "connections": {
+      "Jalankan Manual": {
+        "main": [[{ "node": "Konfigurasi", "type": "main", "index": 0 }]]
+      },
+      "Setiap 15 Menit": {
+        "main": [[{ "node": "Konfigurasi", "type": "main", "index": 0 }]]
+      },
+      "Konfigurasi": {
+        "main": [[{ "node": "Ambil Produk Bonbox", "type": "main", "index": 0 }]]
+      },
+      "Ambil Produk Bonbox": {
+        "main": [[{ "node": "Pilih Produk Tanpa Foto", "type": "main", "index": 0 }]]
+      },
+      "Pilih Produk Tanpa Foto": {
+        "main": [[{ "node": "Ambil Media Shopee", "type": "main", "index": 0 }]]
+      },
+      "Ambil Media Shopee": {
+        "main": [[{ "node": "Validasi Hasil Media", "type": "main", "index": 0 }]]
+      },
+      "Validasi Hasil Media": {
+        "main": [[{ "node": "Simpan Media ke Bonbox", "type": "main", "index": 0 }]]
+      },
+      "Simpan Media ke Bonbox": {
+        "main": [[{ "node": "Ringkasan", "type": "main", "index": 0 }]]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate",
+      "availableInMCP": false
+    },
+    "staticData": {
+      "global": {
+        "failures": {},
+        "videoPending": {}
+      }
+    },
+    "pinData": {},
+    "tags": [],
+    "versionId": "119262a2-0433-493f-a2b4-5cf69cfdf527"
+  }
+]

@@ -64,9 +64,19 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       },
     } : {}),
   };
+  const videoSchema = product.videoUrl ? {
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: `Video ${product.name}`,
+    description,
+    ...(images[0] ? { thumbnailUrl: [images[0]] } : {}),
+    contentUrl: product.videoUrl,
+    uploadDate: product.updatedAt,
+  } : null;
 
   return <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema).replace(/</g, "\\u003c") }} />
+    {videoSchema && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(videoSchema).replace(/</g, "\\u003c") }} />}
     <ProductDetail productId={id} initialProduct={product} />
   </>;
 }
