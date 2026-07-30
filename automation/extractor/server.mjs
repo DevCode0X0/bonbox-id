@@ -7,12 +7,22 @@ const token = String(process.env.EXTRACTOR_TOKEN || "");
 const cdpUrl = String(process.env.CHROME_CDP_URL || "");
 const navigationTimeout = Number(process.env.NAVIGATION_TIMEOUT_MS || 90000);
 const priceRequestDelay = Math.max(250, Number(process.env.PRICE_REQUEST_DELAY_MS || 1200));
+const priceCooldownEvery = Math.max(10, Number(process.env.PRICE_COOLDOWN_EVERY || 50));
+const priceCooldownMs = Math.max(60000, Number(process.env.PRICE_COOLDOWN_MS || 180000));
 const maxConcurrency = Math.max(1, Number(process.env.MAX_CONCURRENCY || 1));
 const SOCIAL_USER_AGENT = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
 
 let activeJobs = 0;
 let cdpBrowser = null;
 let resolvedCdpUrl = "";
+
+class ShopeeApiError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = "ShopeeApiError";
+    this.code = code;
+  }
+}
 
 function json(response, status, body) {
   response.writeHead(status, {
@@ -195,6 +205,10 @@ function formatRupiahValue(value) {
   return new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(value);
 }
 
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 async function extractPrice(product) {
   const productId = String(product?.productId || "").trim();
   const url = String(product?.url || "").trim();
@@ -220,7 +234,10 @@ async function extractPrice(product) {
   }, ids);
 
   if (result.status !== 200 || !result.item) {
-    throw new Error(`Shopee merespons ${result.status}${result.error ? ` (${result.error})` : ""}.`);
+    throw new ShopeeApiError(
+      `Shopee merespons ${result.status}${result.error ? ` (${result.error})` : ""}.`,
+      result.error,
+    );
   }
 
   const rawPrice = Number(result.item.price_min ?? result.item.price);
@@ -252,16 +269,33 @@ async function extractPrices(products) {
 
   for (let index = 0; index < products.length; index += 1) {
     const product = products[index];
+    if (index > 0 && index % priceCooldownEvery === 0) {
+      await wait(priceCooldownMs);
+    }
     try {
       updates.push(await extractPrice(product));
     } catch (error) {
-      failures.push({
-        productId: String(product?.productId || ""),
-        error: error instanceof Error ? error.message : "Harga gagal dibaca.",
-      });
+      if (error instanceof ShopeeApiError && String(error.code) === "90309999") {
+        await wait(priceCooldownMs);
+        try {
+          updates.push(await extractPrice(product));
+          if (index < products.length - 1) await wait(priceRequestDelay);
+          continue;
+        } catch (retryError) {
+          failures.push({
+            productId: String(product?.productId || ""),
+            error: retryError instanceof Error ? retryError.message : "Harga gagal dibaca setelah dicoba ulang.",
+          });
+        }
+      } else {
+        failures.push({
+          productId: String(product?.productId || ""),
+          error: error instanceof Error ? error.message : "Harga gagal dibaca.",
+        });
+      }
     }
     if (index < products.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, priceRequestDelay));
+      await wait(priceRequestDelay);
     }
   }
 
@@ -389,6 +423,8 @@ const server = http.createServer(async (request, response) => {
       maxConcurrency,
       chromeConfigured: Boolean(cdpUrl),
       chromeConnected: Boolean(cdpBrowser?.isConnected()),
+      priceCooldownEvery,
+      priceCooldownMs,
     });
   }
   if (request.method !== "POST" || !["/extract", "/prices"].includes(request.url || "")) {

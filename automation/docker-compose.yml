@@ -35,6 +35,8 @@ services:
       NAVIGATION_TIMEOUT_MS: "90000"
       CHROME_CDP_URL: ${CHROME_CDP_URL:-http://host.docker.internal:9222}
       PRICE_REQUEST_DELAY_MS: ${PRICE_REQUEST_DELAY_MS:-1200}
+      PRICE_COOLDOWN_EVERY: ${PRICE_COOLDOWN_EVERY:-50}
+      PRICE_COOLDOWN_MS: ${PRICE_COOLDOWN_MS:-180000}
     expose:
       - "3000"
     shm_size: "2gb"
