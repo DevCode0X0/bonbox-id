@@ -97,17 +97,40 @@ function metaContent(html: string, key: string) {
 
 async function readShopeeProduct(shopId: string, itemId: string) {
   const productUrl = `https://shopee.co.id/product/${shopId}/${itemId}`;
-  const response = await fetch(productUrl, {
-    headers: {
-      "user-agent": SOCIAL_USER_AGENT,
-      accept: "text/html,application/xhtml+xml",
-      "accept-language": "id-ID,id;q=0.9,en;q=0.7",
-    },
-    redirect: "follow",
-  });
+  const [response, shopResponse] = await Promise.all([
+    fetch(productUrl, {
+      headers: {
+        "user-agent": SOCIAL_USER_AGENT,
+        accept: "text/html,application/xhtml+xml",
+        "accept-language": "id-ID,id;q=0.9,en;q=0.7",
+      },
+      redirect: "follow",
+    }),
+    fetch(`https://shopee.co.id/api/v4/shop/get_shop_detail?shopid=${shopId}`, {
+      headers: {
+        "user-agent": SOCIAL_USER_AGENT,
+        accept: "application/json",
+        referer: productUrl,
+      },
+    }),
+  ]);
   if (!response.ok) throw new Error(`Shopee merespons ${response.status}. Silakan coba lagi.`);
 
   const html = await response.text();
+  let store = "Shopee";
+  if (shopResponse.ok) {
+    try {
+      const shop = await shopResponse.json() as { data?: { name?: string } };
+      const shopName = String(shop.data?.name ?? "").trim();
+      if (shopName) {
+        store = shopName === shopName.toUpperCase()
+          ? shopName.toLowerCase().replace(/\b\p{L}/gu, (letter) => letter.toUpperCase())
+          : shopName;
+      }
+    } catch {
+      store = "Shopee";
+    }
+  }
   const title = metaContent(html, "og:title")
     .replace(/^Jual\s+/i, "")
     .replace(/\s+\|\s+Shopee Indonesia\s*$/i, "")
@@ -121,6 +144,7 @@ async function readShopeeProduct(shopId: string, itemId: string) {
   return {
     itemId,
     name: title || `Produk Shopee ${itemId}`,
+    store,
     productUrl,
     images,
   };
@@ -234,8 +258,8 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     await DB.prepare(`INSERT INTO products
       (id, name, category, price_label, sales_label, store, commission_rate, commission_label, product_url, affiliate_url, image_url, gallery_urls, video_url, description, featured, active, updated_at)
-      VALUES (?, ?, ?, '', '', 'Shopee', '', '', ?, ?, '', '[]', '', '', 0, 1, ?)`)
-      .bind(shopee.itemId, shopee.name, category, shopee.productUrl, submittedUrl, now)
+      VALUES (?, ?, ?, '', '', ?, '', '', ?, ?, '', '[]', '', '', 0, 1, ?)`)
+      .bind(shopee.itemId, shopee.name, category, shopee.store, shopee.productUrl, submittedUrl, now)
       .run();
 
     let mediaSynced = false;
@@ -248,7 +272,7 @@ export async function POST(request: Request) {
             "content-type": "application/json",
             "x-automation-token": ADMIN_TOKEN,
           },
-          body: JSON.stringify({ id: shopee.itemId, imageUrls: shopee.images, videoUrls: [] }),
+          body: JSON.stringify({ id: shopee.itemId, imageUrls: shopee.images, videoUrls: [], store: shopee.store }),
         });
         mediaSynced = mediaResponse.ok;
         if (!mediaResponse.ok) mediaWarning = "Produk tersimpan, tetapi media akan dilengkapi oleh n8n.";

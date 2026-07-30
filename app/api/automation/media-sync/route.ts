@@ -11,6 +11,7 @@ type MediaSyncPayload = {
   id?: string;
   imageUrls?: string[];
   videoUrls?: string[];
+  store?: string;
 };
 
 type ImportedMedia = {
@@ -158,7 +159,7 @@ export async function POST(request: Request) {
   const videoUrls = uniqueHttpsUrls(payload.videoUrls, 1);
   if (!imageUrls.length) return Response.json({ error: "Tidak ada URL gambar Shopee yang valid." }, { status: 422 });
 
-  const existing = await DB.prepare("SELECT id, image_url, gallery_urls, video_url FROM products WHERE id = ? AND active = 1")
+  const existing = await DB.prepare("SELECT id, image_url, gallery_urls, video_url, store FROM products WHERE id = ? AND active = 1")
     .bind(id)
     .first<Record<string, unknown>>();
   if (!existing) return Response.json({ error: "Produk tidak ditemukan." }, { status: 404 });
@@ -167,10 +168,11 @@ export async function POST(request: Request) {
     const imageUrl = imageUrls[0];
     const galleryUrls = imageUrls.slice(1);
     const videoUrl = videoUrls[0] || String(existing.video_url ?? "");
+    const store = String(payload.store ?? "").trim().slice(0, 300) || String(existing.store ?? "");
     const updatedAt = new Date().toISOString();
 
-    await DB.prepare("UPDATE products SET image_url = ?, gallery_urls = ?, video_url = ?, updated_at = ? WHERE id = ?")
-      .bind(imageUrl, JSON.stringify(galleryUrls), videoUrl, updatedAt, id)
+    await DB.prepare("UPDATE products SET image_url = ?, gallery_urls = ?, video_url = ?, store = ?, updated_at = ? WHERE id = ?")
+      .bind(imageUrl, JSON.stringify(galleryUrls), videoUrl, store, updatedAt, id)
       .run();
 
     return Response.json({
@@ -227,6 +229,7 @@ export async function POST(request: Request) {
   const imageUrl = importedImages[0].url;
   const galleryUrls = importedImages.slice(1).map((media) => media.url);
   const videoUrl = importedVideo?.url || String(existing.video_url ?? "");
+  const store = String(payload.store ?? "").trim().slice(0, 300) || String(existing.store ?? "");
   const updatedAt = new Date().toISOString();
 
   const currentImageKeys = new Set(importedImages.map((media) => media.key));
@@ -236,8 +239,8 @@ export async function POST(request: Request) {
     .filter((key) => !currentImageKeys.has(key));
   if (staleImageKeys.length) await MEDIA.delete(staleImageKeys);
 
-  await DB.prepare("UPDATE products SET image_url = ?, gallery_urls = ?, video_url = ?, updated_at = ? WHERE id = ?")
-    .bind(imageUrl, JSON.stringify(galleryUrls), videoUrl, updatedAt, id)
+  await DB.prepare("UPDATE products SET image_url = ?, gallery_urls = ?, video_url = ?, store = ?, updated_at = ? WHERE id = ?")
+    .bind(imageUrl, JSON.stringify(galleryUrls), videoUrl, store, updatedAt, id)
     .run();
 
   return Response.json({
