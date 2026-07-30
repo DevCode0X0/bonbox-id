@@ -64,13 +64,13 @@
       },
       {
         "parameters": {
-          "jsCode": "const response = $input.first().json;\nconst batchSize = Math.max(1, Number($('Konfigurasi').first().json.batchSize || 1));\nconst products = Array.isArray(response.products) ? response.products : [];\nconst candidates = products\n  .filter((product) => !String(product.imageUrl || '').trim())\n  .slice(0, batchSize);\n\nreturn candidates.map((product) => ({ json: product }));"
+          "jsCode": "const response = $input.first().json;\nconst batchSize = Math.max(1, Number($('Konfigurasi').first().json.batchSize || 1));\nconst products = Array.isArray(response.products) ? response.products : [];\nconst state = $getWorkflowStaticData('global');\nstate.failures = state.failures || {};\nstate.videoChecked = state.videoChecked || {};\nconst retryAfterMs = 6 * 60 * 60 * 1000;\nconst canRetry = (id) => {\n  const checkedAt = Date.parse(state.failures[id]?.checkedAt || '');\n  return !Number.isFinite(checkedAt) || Date.now() - checkedAt >= retryAfterMs;\n};\nconst candidates = products\n  .filter((product) => /^https:\\/\\/(?:[^/]+\\.)?shopee\\.co\\.id\\/(?:product|opaanlp)\\/\\d+\\/\\d+/.test(String(product.productUrl || '')))\n  .filter((product) => canRetry(String(product.id)))\n  .filter((product) => {\n    const missingImage = !String(product.imageUrl || '').trim();\n    const missingDescription = !String(product.description || '').trim();\n    const videoNotChecked = !String(product.videoUrl || '').trim() && !state.videoChecked[String(product.id)];\n    return missingImage || missingDescription || videoNotChecked;\n  })\n  .sort((a, b) => {\n    const aIncomplete = Number(!String(a.imageUrl || '').trim() || !String(a.description || '').trim());\n    const bIncomplete = Number(!String(b.imageUrl || '').trim() || !String(b.description || '').trim());\n    return bIncomplete - aIncomplete;\n  })\n  .slice(0, batchSize);\n\nreturn candidates.map((product) => ({ json: product }));"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [200, 260],
         "id": "713e6ea3-84d7-4f1c-a56a-b4400b67ec7b",
-        "name": "Pilih Produk Tanpa Foto"
+        "name": "Pilih Produk Belum Lengkap"
       },
       {
         "parameters": {
@@ -101,7 +101,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const state = $getWorkflowStaticData('global');\nstate.failures = state.failures || {};\nstate.videoPending = state.videoPending || {};\n\nconst successful = [];\nfor (const item of $input.all()) {\n  const media = item.json;\n  if (!media.ok || !Array.isArray(media.images) || !media.images.length) {\n    state.failures[media.productId || 'unknown'] = {\n      reason: media.error || 'Foto produk tidak ditemukan',\n      checkedAt: new Date().toISOString(),\n    };\n    continue;\n  }\n  delete state.failures[media.productId];\n  if (media.videoPending) {\n    state.videoPending[media.productId] = {\n      productUrl: media.requestedUrl,\n      checkedAt: new Date().toISOString(),\n    };\n  } else {\n    delete state.videoPending[media.productId];\n  }\n  successful.push({ json: media });\n}\n\nreturn successful;"
+          "jsCode": "const state = $getWorkflowStaticData('global');\nstate.failures = state.failures || {};\nstate.videoPending = state.videoPending || {};\nstate.videoChecked = state.videoChecked || {};\nstate.descriptionPending = state.descriptionPending || {};\n\nconst successful = [];\nfor (const item of $input.all()) {\n  const media = item.json;\n  const productId = String(media.productId || 'unknown');\n  if (!media.ok || !Array.isArray(media.images) || !media.images.length) {\n    state.failures[productId] = {\n      reason: media.error || 'Foto produk tidak ditemukan',\n      checkedAt: new Date().toISOString(),\n    };\n    continue;\n  }\n\n  if (media.diagnostics?.productDataAvailable) {\n    delete state.failures[productId];\n    delete state.descriptionPending[productId];\n    state.videoChecked[productId] = {\n      checkedAt: new Date().toISOString(),\n      hasVideo: Boolean(media.hasVideo),\n      videoFound: Array.isArray(media.videos) && media.videos.length > 0,\n    };\n  } else {\n    state.failures[productId] = {\n      reason: media.diagnostics?.productDataError || 'Deskripsi dan video belum dapat diperiksa',\n      checkedAt: new Date().toISOString(),\n    };\n    state.descriptionPending[productId] = {\n      productUrl: media.requestedUrl,\n      checkedAt: new Date().toISOString(),\n    };\n  }\n\n  if (media.videoPending) {\n    state.videoPending[productId] = {\n      productUrl: media.requestedUrl,\n      checkedAt: new Date().toISOString(),\n    };\n  } else {\n    delete state.videoPending[productId];\n  }\n  successful.push({ json: media });\n}\n\nreturn successful;"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -125,7 +125,7 @@
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ id: $json.productId, imageUrls: $json.images, videoUrls: $json.videos }) }}",
+          "body": "={{ JSON.stringify({ id: $json.productId, imageUrls: $json.images, videoUrls: $json.videos, description: $json.description }) }}",
           "options": {
             "timeout": 300000
           }
@@ -138,7 +138,7 @@
       },
       {
         "parameters": {
-          "jsCode": "return $input.all().map((item) => ({\n  json: {\n    ok: Boolean(item.json.ok),\n    productId: item.json.id,\n    imageUrl: item.json.imageUrl,\n    galleryCount: Array.isArray(item.json.galleryUrls) ? item.json.galleryUrls.length : 0,\n    videoUrl: item.json.videoUrl || '',\n    warningCount: Array.isArray(item.json.errors) ? item.json.errors.length : 0,\n    completedAt: new Date().toISOString(),\n  },\n}));"
+          "jsCode": "return $input.all().map((item) => ({\n  json: {\n    ok: Boolean(item.json.ok),\n    productId: item.json.id,\n    imageUrl: item.json.imageUrl,\n    galleryCount: Array.isArray(item.json.galleryUrls) ? item.json.galleryUrls.length : 0,\n    videoUrl: item.json.videoUrl || '',\n    descriptionSaved: Boolean(item.json.description),\n    warningCount: Array.isArray(item.json.errors) ? item.json.errors.length : 0,\n    completedAt: new Date().toISOString(),\n  },\n}));"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -148,7 +148,7 @@
       },
       {
         "parameters": {
-          "content": "## BONBOX media sync\n\nWorkflow ini memproses 1 produk tanpa foto setiap 15 menit agar Shopee tidak menerima permintaan bersamaan.\n\n1. Membaca produk dari Bonbox.\n2. Mengambil galeri Shopee.\n3. Mendeteksi keberadaan video.\n4. Menyalin media ke penyimpanan Bonbox.\n5. Menyimpan daftar video yang masih menunggu akses browser Shopee.\n\nAktifkan hanya setelah satu pengujian manual berhasil.",
+          "content": "## BONBOX media & description sync\n\nWorkflow memproses 1 produk setiap 15 menit agar Shopee tidak menerima permintaan bersamaan.\n\n1. Mengambil galeri foto Shopee.\n2. Membaca video jika tersedia.\n3. Mengambil deskripsi dan membuang baris kebijakan penjual seperti unboxing, komplain, garansi, wajib, checkout, retur, serta NB.\n4. Menyalin media ke penyimpanan BONBOX.\n5. Memeriksa bertahap produk lama yang belum memiliki video.\n\nJika Shopee membatasi akses, produk dicoba lagi setelah 6 jam.",
           "height": 300,
           "width": 420,
           "color": 5
@@ -171,9 +171,9 @@
         "main": [[{ "node": "Ambil Produk Bonbox", "type": "main", "index": 0 }]]
       },
       "Ambil Produk Bonbox": {
-        "main": [[{ "node": "Pilih Produk Tanpa Foto", "type": "main", "index": 0 }]]
+        "main": [[{ "node": "Pilih Produk Belum Lengkap", "type": "main", "index": 0 }]]
       },
-      "Pilih Produk Tanpa Foto": {
+      "Pilih Produk Belum Lengkap": {
         "main": [[{ "node": "Ambil Media Shopee", "type": "main", "index": 0 }]]
       },
       "Ambil Media Shopee": {
@@ -194,11 +194,13 @@
     "staticData": {
       "global": {
         "failures": {},
-        "videoPending": {}
+        "videoPending": {},
+        "videoChecked": {},
+        "descriptionPending": {}
       }
     },
     "pinData": {},
     "tags": [],
-    "versionId": "119262a2-0433-493f-a2b4-5cf69cfdf527"
+    "versionId": "7c14a0f6-1dc5-4ba9-a1e7-0f5b8f365baa"
   }
 ]

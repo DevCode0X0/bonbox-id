@@ -14,6 +14,7 @@ type MediaSyncPayload = {
   store?: string;
   priceLabel?: string;
   salesLabel?: string;
+  description?: string;
 };
 
 type ImportedMedia = {
@@ -158,10 +159,10 @@ export async function POST(request: Request) {
   if (!id) return Response.json({ error: "ID produk tidak valid." }, { status: 400 });
 
   const imageUrls = uniqueHttpsUrls(payload.imageUrls, MAX_IMAGES);
-  const videoUrls = uniqueHttpsUrls(payload.videoUrls, 1);
+  const videoUrls = uniqueHttpsUrls(payload.videoUrls, 3);
   if (!imageUrls.length) return Response.json({ error: "Tidak ada URL gambar Shopee yang valid." }, { status: 422 });
 
-  const existing = await DB.prepare("SELECT id, image_url, gallery_urls, video_url, store, price_label, sales_label FROM products WHERE id = ? AND active = 1")
+  const existing = await DB.prepare("SELECT id, image_url, gallery_urls, video_url, description, store, price_label, sales_label FROM products WHERE id = ? AND active = 1")
     .bind(id)
     .first<Record<string, unknown>>();
   if (!existing) return Response.json({ error: "Produk tidak ditemukan." }, { status: 404 });
@@ -173,10 +174,11 @@ export async function POST(request: Request) {
     const store = String(payload.store ?? "").trim().slice(0, 300) || String(existing.store ?? "");
     const priceLabel = String(payload.priceLabel ?? "").trim().replace(/^Rp\s*/i, "").slice(0, 80) || String(existing.price_label ?? "");
     const salesLabel = String(payload.salesLabel ?? "").trim().slice(0, 80) || String(existing.sales_label ?? "");
+    const description = String(payload.description ?? "").trim().slice(0, 20000) || String(existing.description ?? "");
     const updatedAt = new Date().toISOString();
 
-    await DB.prepare("UPDATE products SET image_url = ?, gallery_urls = ?, video_url = ?, store = ?, price_label = ?, sales_label = ?, updated_at = ? WHERE id = ?")
-      .bind(imageUrl, JSON.stringify(galleryUrls), videoUrl, store, priceLabel, salesLabel, updatedAt, id)
+    await DB.prepare("UPDATE products SET image_url = ?, gallery_urls = ?, video_url = ?, description = ?, store = ?, price_label = ?, sales_label = ?, updated_at = ? WHERE id = ?")
+      .bind(imageUrl, JSON.stringify(galleryUrls), videoUrl, description, store, priceLabel, salesLabel, updatedAt, id)
       .run();
 
     return Response.json({
@@ -186,6 +188,7 @@ export async function POST(request: Request) {
       imageUrl,
       galleryUrls,
       videoUrl,
+      description,
       importedImages: [],
       importedVideo: null,
       errors: [],
@@ -218,13 +221,14 @@ export async function POST(request: Request) {
   }
 
   let importedVideo: ImportedMedia | null = null;
-  if (videoUrls[0]) {
+  for (const videoSourceUrl of videoUrls) {
     try {
-      importedVideo = await importMedia(MEDIA, id, videoUrls[0], "video", 0, origin);
+      importedVideo = await importMedia(MEDIA, id, videoSourceUrl, "video", 0, origin);
+      break;
     } catch (error) {
       errors.push({
         kind: "video",
-        sourceUrl: videoUrls[0],
+        sourceUrl: videoSourceUrl,
         error: error instanceof Error ? error.message : "Gagal mengimpor video.",
       });
     }
@@ -236,6 +240,7 @@ export async function POST(request: Request) {
   const store = String(payload.store ?? "").trim().slice(0, 300) || String(existing.store ?? "");
   const priceLabel = String(payload.priceLabel ?? "").trim().replace(/^Rp\s*/i, "").slice(0, 80) || String(existing.price_label ?? "");
   const salesLabel = String(payload.salesLabel ?? "").trim().slice(0, 80) || String(existing.sales_label ?? "");
+  const description = String(payload.description ?? "").trim().slice(0, 20000) || String(existing.description ?? "");
   const updatedAt = new Date().toISOString();
 
   const currentImageKeys = new Set(importedImages.map((media) => media.key));
@@ -245,8 +250,8 @@ export async function POST(request: Request) {
     .filter((key) => !currentImageKeys.has(key));
   if (staleImageKeys.length) await MEDIA.delete(staleImageKeys);
 
-  await DB.prepare("UPDATE products SET image_url = ?, gallery_urls = ?, video_url = ?, store = ?, price_label = ?, sales_label = ?, updated_at = ? WHERE id = ?")
-    .bind(imageUrl, JSON.stringify(galleryUrls), videoUrl, store, priceLabel, salesLabel, updatedAt, id)
+  await DB.prepare("UPDATE products SET image_url = ?, gallery_urls = ?, video_url = ?, description = ?, store = ?, price_label = ?, sales_label = ?, updated_at = ? WHERE id = ?")
+    .bind(imageUrl, JSON.stringify(galleryUrls), videoUrl, description, store, priceLabel, salesLabel, updatedAt, id)
     .run();
 
   return Response.json({
@@ -256,6 +261,7 @@ export async function POST(request: Request) {
     imageUrl,
     galleryUrls,
     videoUrl,
+    description,
     importedImages,
     importedVideo,
     skippedDuplicateImages,
