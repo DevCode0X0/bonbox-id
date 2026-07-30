@@ -85,6 +85,9 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
   const [galleryDrafts, setGalleryDrafts] = useState<Record<string, string>>(() => createGalleryDrafts(initialProducts));
   const [token, setToken] = useState("");
   const [query, setQuery] = useState("");
+  const [shopeeUrl, setShopeeUrl] = useState("");
+  const [newProductCategory, setNewProductCategory] = useState("Home Living");
+  const [addingProduct, setAddingProduct] = useState(false);
   const [csvFileName, setCsvFileName] = useState("");
   const [csvProducts, setCsvProducts] = useState<CsvProductUpdate[]>([]);
   const [syncingCsv, setSyncingCsv] = useState(false);
@@ -146,6 +149,53 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
     setStatus(response.ok ? { kind: "success", text: `Produk ${product.id} berhasil disimpan.` } : { kind: "error", text: data.error ?? "Gagal menyimpan perubahan." });
   }
 
+  async function addShopeeProduct(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) {
+      setStatus({ kind: "error", text: "Masukkan kunci admin sebelum menambahkan produk." });
+      return;
+    }
+    if (!shopeeUrl.trim()) {
+      setStatus({ kind: "error", text: "Tempel link produk atau link affiliate Shopee." });
+      return;
+    }
+
+    setAddingProduct(true);
+    setStatus({ kind: "info", text: "Membaca produk Shopee dan menyalin fotonya..." });
+    try {
+      const response = await fetch("/api/products", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-admin-token": token },
+        body: JSON.stringify({ url: shopeeUrl.trim(), category: newProductCategory.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setStatus({ kind: "error", text: data.error ?? "Produk gagal ditambahkan." });
+        if (data.id) setQuery(String(data.id));
+        return;
+      }
+
+      const refreshed = await fetch("/api/products").then((result) => result.json());
+      if (Array.isArray(refreshed.products)) {
+        setProducts(refreshed.products);
+        setGalleryDrafts(createGalleryDrafts(refreshed.products));
+      }
+      const productId = String(data.product?.id ?? "");
+      setShopeeUrl("");
+      if (productId) setQuery(productId);
+      setStatus({
+        kind: "success",
+        text: data.mediaSynced
+          ? `Produk ${productId} berhasil ditambahkan beserta fotonya.`
+          : `Produk ${productId} berhasil ditambahkan. ${data.warning || "Foto akan dilengkapi otomatis."}`,
+      });
+    } catch {
+      setStatus({ kind: "error", text: "Produk gagal ditambahkan karena koneksi terputus. Silakan coba lagi." });
+    } finally {
+      setAddingProduct(false);
+    }
+  }
+
   async function selectCsv(file?: File) {
     if (!file) return;
     try {
@@ -205,6 +255,19 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
           <div className="token-box"><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="Kunci admin" aria-label="Kunci admin" /><button type="button" onClick={() => setStatus({ kind: "info", text: token ? "Kunci siap digunakan." : "Kunci masih kosong." })}>Gunakan</button></div>
         </div>
         <p className={`admin-status ${status.kind}`}>{status.text}</p>
+        <section className="link-import-panel" aria-labelledby="link-import-title">
+          <div className="link-import-copy">
+            <span className="eyebrow">TAMBAH PRODUK</span>
+            <h2 id="link-import-title">Tambah dari link Shopee</h2>
+            <p>Tempel link affiliate atau link produk. Nama dan foto akan dibaca otomatis; harga dan detail lain dapat dilengkapi setelah produk tersimpan.</p>
+          </div>
+          <form className="link-import-form" onSubmit={addShopeeProduct}>
+            <label className="link-field"><span>Link Shopee</span><input type="url" value={shopeeUrl} onChange={(event) => setShopeeUrl(event.target.value)} placeholder="https://s.shopee.co.id/..." required /></label>
+            <label className="category-field"><span>Kategori</span><input value={newProductCategory} onChange={(event) => setNewProductCategory(event.target.value)} placeholder="Home Living" /></label>
+            <button className="save-button" type="submit" disabled={addingProduct}>{addingProduct ? "Menambahkan..." : "Tambah produk"}</button>
+          </form>
+          <small className="link-import-note">Link yang ditempel akan digunakan untuk tombol pembelian. Gunakan link affiliate agar komisi tetap tercatat.</small>
+        </section>
         <section className="csv-sync-panel" aria-labelledby="csv-sync-title">
           <div className="csv-sync-heading">
             <div><span className="eyebrow">SINKRONISASI SHOPEE</span><h2 id="csv-sync-title">Perbarui data dari CSV</h2><p>Harga, penjualan, komisi, toko, dan link akan diperbarui berdasarkan ID. Media dan deskripsi manual tidak disentuh.</p></div>

@@ -4,6 +4,7 @@ type RuntimeEnv = {
   DB?: D1Database;
   MEDIA?: R2Bucket;
   AUTOMATION_TOKEN?: string;
+  ADMIN_TOKEN?: string;
 };
 
 type MediaSyncPayload = {
@@ -36,10 +37,11 @@ async function sha256(value: string) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function authorized(request: Request, token?: string) {
+async function authorized(request: Request, token?: string, adminToken?: string) {
   const supplied = request.headers.get("x-automation-token");
   if (!supplied) return false;
   if (token && supplied === token) return true;
+  if (adminToken && supplied === adminToken) return true;
   return (await sha256(supplied)) === AUTOMATION_TOKEN_SHA256;
 }
 
@@ -138,8 +140,8 @@ async function importMedia(
 }
 
 export async function POST(request: Request) {
-  const { DB, MEDIA, AUTOMATION_TOKEN } = runtime();
-  if (!(await authorized(request, AUTOMATION_TOKEN))) return Response.json({ error: "Token otomatisasi tidak valid." }, { status: 401 });
+  const { DB, MEDIA, AUTOMATION_TOKEN, ADMIN_TOKEN } = runtime();
+  if (!(await authorized(request, AUTOMATION_TOKEN, ADMIN_TOKEN))) return Response.json({ error: "Token otomatisasi tidak valid." }, { status: 401 });
   if (!DB) return Response.json({ error: "Database belum aktif." }, { status: 503 });
 
   let payload: MediaSyncPayload;

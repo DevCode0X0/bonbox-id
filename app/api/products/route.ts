@@ -15,8 +15,115 @@ type CsvProductUpdate = {
   affiliateUrl: string;
 };
 
+type AddShopeeProductPayload = {
+  url?: string;
+  category?: string;
+};
+
+const BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36";
+const SOCIAL_USER_AGENT = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
+
 function runtime() {
   return env as unknown as RuntimeEnv;
+}
+
+function decodeHtml(value: string) {
+  return value
+    .replaceAll("&amp;", "&")
+    .replaceAll("&quot;", "\"")
+    .replaceAll("&#39;", "'")
+    .replaceAll("\\u002F", "/")
+    .replaceAll("\\/", "/");
+}
+
+function validShopeeHost(hostname: string) {
+  return hostname === "shopee.co.id" || hostname.endsWith(".shopee.co.id");
+}
+
+function productIds(value: string) {
+  try {
+    const url = new URL(value);
+    if (!validShopeeHost(url.hostname)) return null;
+    const match = url.pathname.match(/\/(?:product|opaanlp)\/(\d+)\/(\d+)/i)
+      || url.pathname.match(/-i\.(\d+)\.(\d+)/i);
+    return match ? { shopId: match[1], itemId: match[2] } : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveShopeeUrl(value: string) {
+  let current = value;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const ids = productIds(current);
+    if (ids) return { ...ids, resolvedUrl: current };
+
+    const url = new URL(current);
+    if (url.protocol !== "https:" || !validShopeeHost(url.hostname)) {
+      throw new Error("Link harus berasal dari Shopee Indonesia.");
+    }
+
+    const response = await fetch(current, {
+      headers: { "user-agent": BROWSER_USER_AGENT, accept: "text/html,*/*" },
+      redirect: "manual",
+    });
+    const location = response.headers.get("location");
+    if (!location) throw new Error("Tujuan link Shopee tidak dapat ditemukan.");
+    current = new URL(location, current).toString();
+  }
+  throw new Error("Link Shopee memiliki terlalu banyak pengalihan.");
+}
+
+function canonicalImageUrl(value: string) {
+  const normalized = decodeHtml(value).trim().replace(/^http:\/\//i, "https://");
+  try {
+    const url = new URL(normalized);
+    if (url.protocol !== "https:" || !url.hostname.endsWith(".susercontent.com")) return "";
+    const match = normalized.match(/^(https:\/\/[^/]+\/file\/[^@?]+)/i);
+    return match ? `${match[1].replace(/\.webp$/i, "")}.webp` : normalized;
+  } catch {
+    return "";
+  }
+}
+
+function metaContent(html: string, key: string) {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return decodeHtml(
+    html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']*)`, "i"))?.[1]
+      || html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${escaped}["']`, "i"))?.[1]
+      || "",
+  );
+}
+
+async function readShopeeProduct(shopId: string, itemId: string) {
+  const productUrl = `https://shopee.co.id/product/${shopId}/${itemId}`;
+  const response = await fetch(productUrl, {
+    headers: {
+      "user-agent": SOCIAL_USER_AGENT,
+      accept: "text/html,application/xhtml+xml",
+      "accept-language": "id-ID,id;q=0.9,en;q=0.7",
+    },
+    redirect: "follow",
+  });
+  if (!response.ok) throw new Error(`Shopee merespons ${response.status}. Silakan coba lagi.`);
+
+  const html = await response.text();
+  const title = metaContent(html, "og:title")
+    .replace(/^Jual\s+/i, "")
+    .replace(/\s+\|\s+Shopee Indonesia\s*$/i, "")
+    .trim();
+  const ogImage = canonicalImageUrl(metaContent(html, "og:image"));
+  const rawImages = [...html.matchAll(/https?:\/\/[^"'<> ]+\/file\/(?:id|sg)-111342(?:01|07)-[a-zA-Z0-9_-]+(?:@[^"'<> ]+)?/gi)]
+    .map((match) => canonicalImageUrl(match[0]))
+    .filter(Boolean);
+  const images = [...new Set([ogImage, ...rawImages].filter(Boolean))].slice(0, 10);
+
+  return {
+    itemId,
+    name: title || `Produk Shopee ${itemId}`,
+    productUrl,
+    images,
+  };
 }
 
 async function ensureProducts(db: D1Database) {
@@ -86,6 +193,80 @@ export async function GET(request: Request) {
   }
   const result = await DB.prepare("SELECT * FROM products WHERE active = 1 ORDER BY featured DESC, rowid ASC").all<Record<string, unknown>>();
   return Response.json({ products: result.results.map(mapProduct), source: "database" });
+}
+
+export async function POST(request: Request) {
+  const { DB, ADMIN_TOKEN } = runtime();
+  if (!DB) return Response.json({ error: "Database belum aktif." }, { status: 503 });
+  if (!ADMIN_TOKEN || request.headers.get("x-admin-token") !== ADMIN_TOKEN) {
+    return Response.json({ error: "Kunci admin tidak valid." }, { status: 401 });
+  }
+
+  let payload: AddShopeeProductPayload;
+  try {
+    payload = await request.json() as AddShopeeProductPayload;
+  } catch {
+    return Response.json({ error: "Data link tidak valid." }, { status: 400 });
+  }
+
+  const submittedUrl = String(payload.url ?? "").trim().slice(0, 2000);
+  if (!submittedUrl) return Response.json({ error: "Link Shopee wajib diisi." }, { status: 400 });
+  try {
+    const parsed = new URL(submittedUrl);
+    if (parsed.protocol !== "https:" || !validShopeeHost(parsed.hostname)) {
+      return Response.json({ error: "Gunakan link HTTPS dari Shopee Indonesia." }, { status: 400 });
+    }
+  } catch {
+    return Response.json({ error: "Format link Shopee tidak valid." }, { status: 400 });
+  }
+
+  try {
+    const resolved = await resolveShopeeUrl(submittedUrl);
+    const shopee = await readShopeeProduct(resolved.shopId, resolved.itemId);
+    await ensureProducts(DB);
+
+    const existing = await DB.prepare("SELECT id FROM products WHERE id = ?").bind(shopee.itemId).first<{ id: string }>();
+    if (existing) {
+      return Response.json({ error: `Produk ${shopee.itemId} sudah ada di katalog.`, id: shopee.itemId }, { status: 409 });
+    }
+
+    const category = String(payload.category ?? "").trim().slice(0, 120) || "Home Living";
+    const now = new Date().toISOString();
+    await DB.prepare(`INSERT INTO products
+      (id, name, category, price_label, sales_label, store, commission_rate, commission_label, product_url, affiliate_url, image_url, gallery_urls, video_url, description, featured, active, updated_at)
+      VALUES (?, ?, ?, '', '', 'Shopee', '', '', ?, ?, '', '[]', '', '', 0, 1, ?)`)
+      .bind(shopee.itemId, shopee.name, category, shopee.productUrl, submittedUrl, now)
+      .run();
+
+    let mediaSynced = false;
+    let mediaWarning = "";
+    if (shopee.images.length) {
+      try {
+        const mediaResponse = await fetch(new URL("/api/automation/media-sync", request.url), {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-automation-token": ADMIN_TOKEN,
+          },
+          body: JSON.stringify({ id: shopee.itemId, imageUrls: shopee.images, videoUrls: [] }),
+        });
+        mediaSynced = mediaResponse.ok;
+        if (!mediaResponse.ok) mediaWarning = "Produk tersimpan, tetapi media akan dilengkapi oleh n8n.";
+      } catch {
+        mediaWarning = "Produk tersimpan, tetapi media akan dilengkapi oleh n8n.";
+      }
+    }
+
+    const row = await DB.prepare("SELECT * FROM products WHERE id = ?").bind(shopee.itemId).first<Record<string, unknown>>();
+    return Response.json({
+      ok: true,
+      product: row ? mapProduct(row) : null,
+      mediaSynced,
+      warning: mediaWarning,
+    }, { status: 201 });
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "Produk Shopee gagal dibaca." }, { status: 422 });
+  }
 }
 
 export async function PUT(request: Request) {
