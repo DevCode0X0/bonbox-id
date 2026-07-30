@@ -18,6 +18,8 @@ type CsvProductUpdate = {
 type AddShopeeProductPayload = {
   url?: string;
   category?: string;
+  priceLabel?: string;
+  salesLabel?: string;
 };
 
 const BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36";
@@ -255,11 +257,16 @@ export async function POST(request: Request) {
     }
 
     const category = String(payload.category ?? "").trim().slice(0, 120) || "Home Living";
+    const priceLabel = String(payload.priceLabel ?? "").trim().replace(/^Rp\s*/i, "").slice(0, 80);
+    const salesLabel = String(payload.salesLabel ?? "").trim().slice(0, 80);
+    if (!priceLabel) {
+      return Response.json({ error: "Harga produk wajib diisi sesuai halaman Shopee." }, { status: 400 });
+    }
     const now = new Date().toISOString();
     await DB.prepare(`INSERT INTO products
       (id, name, category, price_label, sales_label, store, commission_rate, commission_label, product_url, affiliate_url, image_url, gallery_urls, video_url, description, featured, active, updated_at)
-      VALUES (?, ?, ?, '', '', ?, '', '', ?, ?, '', '[]', '', '', 0, 1, ?)`)
-      .bind(shopee.itemId, shopee.name, category, shopee.store, shopee.productUrl, submittedUrl, now)
+      VALUES (?, ?, ?, ?, ?, ?, '', '', ?, ?, '', '[]', '', '', 0, 1, ?)`)
+      .bind(shopee.itemId, shopee.name, category, priceLabel, salesLabel, shopee.store, shopee.productUrl, submittedUrl, now)
       .run();
 
     let mediaSynced = false;
@@ -272,7 +279,14 @@ export async function POST(request: Request) {
             "content-type": "application/json",
             "x-automation-token": ADMIN_TOKEN,
           },
-          body: JSON.stringify({ id: shopee.itemId, imageUrls: shopee.images, videoUrls: [], store: shopee.store }),
+          body: JSON.stringify({
+            id: shopee.itemId,
+            imageUrls: shopee.images,
+            videoUrls: [],
+            store: shopee.store,
+            priceLabel,
+            salesLabel,
+          }),
         });
         mediaSynced = mediaResponse.ok;
         if (!mediaResponse.ok) mediaWarning = "Produk tersimpan, tetapi media akan dilengkapi oleh n8n.";

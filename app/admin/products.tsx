@@ -87,6 +87,8 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
   const [query, setQuery] = useState("");
   const [shopeeUrl, setShopeeUrl] = useState("");
   const [newProductCategory, setNewProductCategory] = useState("Home Living");
+  const [newProductPrice, setNewProductPrice] = useState("");
+  const [newProductSales, setNewProductSales] = useState("");
   const [addingProduct, setAddingProduct] = useState(false);
   const [csvFileName, setCsvFileName] = useState("");
   const [csvProducts, setCsvProducts] = useState<CsvProductUpdate[]>([]);
@@ -159,6 +161,10 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
       setStatus({ kind: "error", text: "Tempel link produk atau link affiliate Shopee." });
       return;
     }
+    if (!newProductPrice.trim()) {
+      setStatus({ kind: "error", text: "Masukkan harga yang terlihat di halaman Shopee." });
+      return;
+    }
 
     setAddingProduct(true);
     setStatus({ kind: "info", text: "Membaca produk Shopee dan menyalin fotonya..." });
@@ -166,7 +172,12 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
       const response = await fetch("/api/products", {
         method: "POST",
         headers: { "content-type": "application/json", "x-admin-token": token },
-        body: JSON.stringify({ url: shopeeUrl.trim(), category: newProductCategory.trim() }),
+        body: JSON.stringify({
+          url: shopeeUrl.trim(),
+          category: newProductCategory.trim(),
+          priceLabel: newProductPrice.trim(),
+          salesLabel: newProductSales.trim(),
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -182,6 +193,8 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
       }
       const productId = String(data.product?.id ?? "");
       setShopeeUrl("");
+      setNewProductPrice("");
+      setNewProductSales("");
       if (productId) setQuery(productId);
       setStatus({
         kind: "success",
@@ -259,11 +272,13 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
           <div className="link-import-copy">
             <span className="eyebrow">TAMBAH PRODUK</span>
             <h2 id="link-import-title">Tambah dari link Shopee</h2>
-            <p>Tempel link affiliate atau link produk. Nama dan foto akan dibaca otomatis; harga dan detail lain dapat dilengkapi setelah produk tersimpan.</p>
+            <p>Tempel link affiliate atau link produk. Nama, toko, dan foto dibaca otomatis; masukkan harga yang tampil di Shopee agar katalog langsung lengkap.</p>
           </div>
           <form className="link-import-form" onSubmit={addShopeeProduct}>
             <label className="link-field"><span>Link Shopee</span><input type="url" value={shopeeUrl} onChange={(event) => setShopeeUrl(event.target.value)} placeholder="https://s.shopee.co.id/..." required /></label>
             <label className="category-field"><span>Kategori</span><input value={newProductCategory} onChange={(event) => setNewProductCategory(event.target.value)} placeholder="Home Living" /></label>
+            <label className="price-field"><span>Harga</span><input value={newProductPrice} onChange={(event) => setNewProductPrice(event.target.value)} placeholder="91.665" inputMode="numeric" required /></label>
+            <label className="sales-field"><span>Terjual</span><input value={newProductSales} onChange={(event) => setNewProductSales(event.target.value)} placeholder="3" inputMode="numeric" /></label>
             <button className="save-button" type="submit" disabled={addingProduct}>{addingProduct ? "Menambahkan..." : "Tambah produk"}</button>
           </form>
           <small className="link-import-note">Link yang ditempel akan digunakan untuk tombol pembelian. Gunakan link affiliate agar komisi tetap tercatat.</small>
