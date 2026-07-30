@@ -21,6 +21,8 @@ const CSV_FIELDS = {
   affiliateUrl: "Link Komisi Ekstra",
 } as const;
 
+const ADMIN_PAGE_SIZE = 20;
+
 function parseCsv(text: string) {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -85,6 +87,7 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
   const [galleryDrafts, setGalleryDrafts] = useState<Record<string, string>>(() => createGalleryDrafts(initialProducts));
   const [token, setToken] = useState("");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [shopeeUrl, setShopeeUrl] = useState("");
   const [newProductCategory, setNewProductCategory] = useState("Home Living");
   const [newProductPrice, setNewProductPrice] = useState("");
@@ -109,6 +112,23 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
     if (!keyword) return products;
     return products.filter((product) => `${product.name} ${product.id} ${product.category}`.toLowerCase().includes(keyword));
   }, [products, query]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ADMIN_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const visibleProducts = useMemo(
+    () => filtered.slice((currentPage - 1) * ADMIN_PAGE_SIZE, currentPage * ADMIN_PAGE_SIZE),
+    [currentPage, filtered],
+  );
+  const paginationItems = useMemo(() => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
+    const pages = [...new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1])]
+      .filter((item) => item >= 1 && item <= totalPages)
+      .sort((a, b) => a - b);
+    return pages.flatMap((item, index) => {
+      const previous = pages[index - 1];
+      return previous && item - previous > 1 ? ["ellipsis", item] : [item];
+    });
+  }, [currentPage, totalPages]);
 
   const csvPreview = useMemo(() => {
     const productById = new Map(products.map((product) => [product.id, product]));
@@ -149,6 +169,13 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
     });
     const data = await response.json();
     setStatus(response.ok ? { kind: "success", text: `Produk ${product.id} berhasil disimpan.` } : { kind: "error", text: data.error ?? "Gagal menyimpan perubahan." });
+  }
+
+  function goToPage(target: number) {
+    setPage(Math.min(Math.max(target, 1), totalPages));
+    window.requestAnimationFrame(() => {
+      document.querySelector(".admin-search")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   async function addShopeeProduct(event: React.FormEvent<HTMLFormElement>) {
@@ -301,9 +328,9 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
             <div className="csv-sync-actions"><small>Periksa jumlah perubahan, lalu terapkan menggunakan kunci admin.</small><button className="save-button" type="button" disabled={syncingCsv || !csvPreview.changed.length} onClick={applyCsv}>{syncingCsv ? "Memperbarui..." : `Terapkan ${csvPreview.changed.length} perubahan`}</button></div>
           </div>}
         </section>
-        <div className="admin-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama, ID, atau kategori..." aria-label="Cari produk admin" /><span>{filtered.length} produk</span></div>
+        <div className="admin-search"><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Cari nama, ID, atau kategori..." aria-label="Cari produk admin" /><span>{filtered.length} produk · Halaman {currentPage}/{totalPages}</span></div>
         <div className="admin-editors">
-          {filtered.map((product) => (
+          {visibleProducts.map((product) => (
             <details className="admin-product-editor" key={product.id}>
               <summary><span className="admin-thumb">{product.imageUrl ? <img src={product.imageUrl} alt="" /> : product.category.slice(0, 2).toUpperCase()}</span><span><small>{product.id} · {product.category}</small><b>{product.name}</b></span><em>{product.imageUrl ? "Media tersedia" : "Belum ada gambar"}</em></summary>
               <div className="editor-form">
@@ -316,7 +343,19 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
               </div>
             </details>
           ))}
+          {!visibleProducts.length && <div className="admin-empty"><b>Produk tidak ditemukan</b><span>Coba nama, ID, atau kategori lain.</span></div>}
         </div>
+        {filtered.length > ADMIN_PAGE_SIZE && (
+          <nav className="admin-pagination" aria-label="Halaman daftar produk admin">
+            <button type="button" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>← Sebelumnya</button>
+            <div>
+              {paginationItems.map((item, index) => item === "ellipsis"
+                ? <span className="admin-page-ellipsis" key={`ellipsis-${index}`}>…</span>
+                : <button type="button" className={item === currentPage ? "active" : ""} aria-current={item === currentPage ? "page" : undefined} onClick={() => goToPage(item)} key={item}>{item}</button>)}
+            </div>
+            <button type="button" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>Berikutnya →</button>
+          </nav>
+        )}
       </div>
     </main>
   );
