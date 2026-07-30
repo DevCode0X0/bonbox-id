@@ -292,7 +292,7 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
         <div className="admin-top"><Brand /><Link href="/">← Lihat katalog</Link></div>
         <div className="admin-intro">
           <div><div className="eyebrow">BACKEND KATALOG</div><h1>Kelola produk</h1><p>Tambahkan feature image, galeri foto, video, dan deskripsi. Gunakan satu URL HTTPS per baris untuk galeri.</p></div>
-          <div className="token-box"><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="Kunci admin" aria-label="Kunci admin" /><button type="button" onClick={() => setStatus({ kind: "info", text: token ? "Kunci siap digunakan." : "Kunci masih kosong." })}>Gunakan</button></div>
+          <div className="token-box"><input type="password" name="bonbox-admin-access-key" autoComplete="new-password" data-lpignore="true" data-1p-ignore="true" value={token} onChange={(event) => setToken(event.target.value)} placeholder="Kunci admin" aria-label="Kunci admin" /><button type="button" onClick={() => setStatus({ kind: "info", text: token ? "Kunci siap digunakan." : "Kunci masih kosong." })}>Gunakan</button></div>
         </div>
         <p className={`admin-status ${status.kind}`}>{status.text}</p>
         <section className="link-import-panel" aria-labelledby="link-import-title">
@@ -328,7 +328,7 @@ export default function AdminProducts({ initialProducts }: { initialProducts: Pr
             <div className="csv-sync-actions"><small>Periksa jumlah perubahan, lalu terapkan menggunakan kunci admin.</small><button className="save-button" type="button" disabled={syncingCsv || !csvPreview.changed.length} onClick={applyCsv}>{syncingCsv ? "Memperbarui..." : `Terapkan ${csvPreview.changed.length} perubahan`}</button></div>
           </div>}
         </section>
-        <div className="admin-search"><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Cari nama, ID, atau kategori..." aria-label="Cari produk admin" /><span>{filtered.length} produk · Halaman {currentPage}/{totalPages}</span></div>
+        <div className="admin-search"><input type="search" name="bonbox-product-filter" autoComplete="off" spellCheck={false} value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Cari nama, ID, atau kategori..." aria-label="Cari produk admin" /><span>{filtered.length} produk · Halaman {currentPage}/{totalPages}</span></div>
         <div className="admin-editors">
           {visibleProducts.map((product) => (
             <details className="admin-product-editor" key={product.id}>
