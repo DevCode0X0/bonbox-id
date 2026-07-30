@@ -1,15 +1,18 @@
 import http from "node:http";
+import { lookup } from "node:dns/promises";
 import { chromium } from "playwright-core";
 
 const port = Number(process.env.PORT || 3000);
 const token = String(process.env.EXTRACTOR_TOKEN || "");
 const cdpUrl = String(process.env.CHROME_CDP_URL || "");
 const navigationTimeout = Number(process.env.NAVIGATION_TIMEOUT_MS || 90000);
+const priceRequestDelay = Math.max(250, Number(process.env.PRICE_REQUEST_DELAY_MS || 1200));
 const maxConcurrency = Math.max(1, Number(process.env.MAX_CONCURRENCY || 1));
 const SOCIAL_USER_AGENT = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
 
 let activeJobs = 0;
 let cdpBrowser = null;
+let resolvedCdpUrl = "";
 
 function json(response, status, body) {
   response.writeHead(status, {
@@ -31,6 +34,20 @@ function validShopeeUrl(value) {
       && /^\/(?:product|opaanlp)\/\d+\/\d+/.test(url.pathname);
   } catch {
     return false;
+  }
+}
+
+function shopeeProductIds(value) {
+  try {
+    const url = new URL(String(value || ""));
+    if (url.protocol !== "https:"
+      || (url.hostname !== "shopee.co.id" && !url.hostname.endsWith(".shopee.co.id"))) {
+      return null;
+    }
+    const match = url.pathname.match(/^\/(?:product|opaanlp)\/(\d+)\/(\d+)/);
+    return match ? { shopId: match[1], itemId: match[2] } : null;
+  } catch {
+    return null;
   }
 }
 
@@ -135,8 +152,127 @@ async function extractSocialPage(url) {
 async function browserConnection() {
   if (!cdpUrl) return null;
   if (cdpBrowser?.isConnected()) return cdpBrowser;
-  cdpBrowser = await chromium.connectOverCDP(cdpUrl, { timeout: 15000 });
+  if (!resolvedCdpUrl) {
+    const url = new URL(cdpUrl);
+    if (url.hostname === "host.docker.internal") {
+      const result = await lookup(url.hostname, { family: 4 });
+      url.hostname = result.address;
+    }
+    resolvedCdpUrl = url.toString().replace(/\/$/, "");
+  }
+  cdpBrowser = await chromium.connectOverCDP(resolvedCdpUrl, { timeout: 15000 });
   return cdpBrowser;
+}
+
+async function shopeeApiPage() {
+  const browser = await browserConnection();
+  if (!browser) throw new Error("Browser Shopee belum dikonfigurasi.");
+
+  const context = browser.contexts()[0];
+  if (!context) throw new Error("Profil Chrome otomatisasi belum siap.");
+
+  let page = context.pages().find((candidate) => {
+    try {
+      const hostname = new URL(candidate.url()).hostname;
+      return hostname === "shopee.co.id" || hostname.endsWith(".shopee.co.id");
+    } catch {
+      return false;
+    }
+  });
+
+  if (!page) {
+    page = await context.newPage();
+    await page.goto("https://shopee.co.id/", {
+      waitUntil: "domcontentloaded",
+      timeout: navigationTimeout,
+    });
+  }
+
+  return page;
+}
+
+function formatRupiahValue(value) {
+  return new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(value);
+}
+
+async function extractPrice(product) {
+  const productId = String(product?.productId || "").trim();
+  const url = String(product?.url || "").trim();
+  const ids = shopeeProductIds(url);
+  if (!productId || !ids) throw new Error("ID atau URL produk Shopee tidak valid.");
+
+  const page = await shopeeApiPage();
+  const result = await page.evaluate(async ({ shopId, itemId }) => {
+    const response = await fetch(
+      `/api/v4/pdp/get_pc?item_id=${encodeURIComponent(itemId)}&shop_id=${encodeURIComponent(shopId)}`,
+      {
+        credentials: "include",
+        headers: { accept: "application/json" },
+      },
+    );
+    const body = await response.json().catch(() => null);
+    return {
+      status: response.status,
+      error: body?.error ?? null,
+      item: body?.data?.item ?? null,
+      review: body?.data?.product_review ?? null,
+    };
+  }, ids);
+
+  if (result.status !== 200 || !result.item) {
+    throw new Error(`Shopee merespons ${result.status}${result.error ? ` (${result.error})` : ""}.`);
+  }
+
+  const rawPrice = Number(result.item.price_min ?? result.item.price);
+  const priceValue = Math.round(rawPrice / 100000);
+  if (!Number.isSafeInteger(priceValue) || priceValue < 100 || priceValue > 1_000_000_000) {
+    throw new Error("Harga Shopee tidak valid atau sedang disembunyikan.");
+  }
+
+  const salesLabel = String(
+    result.review?.sold_count_display
+      ?? result.review?.historical_sold_display
+      ?? result.review?.global_sold_display
+      ?? "",
+  ).trim();
+
+  return {
+    productId,
+    shopId: ids.shopId,
+    itemId: ids.itemId,
+    priceValue,
+    priceLabel: formatRupiahValue(priceValue),
+    salesLabel,
+  };
+}
+
+async function extractPrices(products) {
+  const updates = [];
+  const failures = [];
+
+  for (let index = 0; index < products.length; index += 1) {
+    const product = products[index];
+    try {
+      updates.push(await extractPrice(product));
+    } catch (error) {
+      failures.push({
+        productId: String(product?.productId || ""),
+        error: error instanceof Error ? error.message : "Harga gagal dibaca.",
+      });
+    }
+    if (index < products.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, priceRequestDelay));
+    }
+  }
+
+  return {
+    ok: updates.length > 0,
+    requested: products.length,
+    succeeded: updates.length,
+    failed: failures.length,
+    updates,
+    failures,
+  };
 }
 
 async function extractVideoWithChrome(productId, url) {
@@ -255,7 +391,7 @@ const server = http.createServer(async (request, response) => {
       chromeConnected: Boolean(cdpBrowser?.isConnected()),
     });
   }
-  if (request.method !== "POST" || request.url !== "/extract") {
+  if (request.method !== "POST" || !["/extract", "/prices"].includes(request.url || "")) {
     return json(response, 404, { error: "Endpoint tidak ditemukan." });
   }
   if (!authorized(request)) return json(response, 401, { error: "Token extractor tidak valid." });
@@ -264,6 +400,12 @@ const server = http.createServer(async (request, response) => {
   activeJobs += 1;
   try {
     const body = await requestBody(request);
+    if (request.url === "/prices") {
+      const products = Array.isArray(body.products) ? body.products.slice(0, 150) : [];
+      if (!products.length) return json(response, 400, { error: "Daftar produk kosong." });
+      const result = await extractPrices(products);
+      return json(response, result.ok ? 200 : 422, result);
+    }
     if (!validShopeeUrl(body.url)) return json(response, 400, { error: "URL produk Shopee tidak valid." });
     const result = await extractMedia(String(body.productId || ""), String(body.url));
     return json(response, result.ok ? 200 : 422, result);

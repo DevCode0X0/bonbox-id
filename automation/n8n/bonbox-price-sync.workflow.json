@@ -1,0 +1,182 @@
+[
+  {
+    "id": "bonboxPriceSync01",
+    "name": "BONBOX - Perbarui Harga Shopee Harian",
+    "active": false,
+    "nodes": [
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [-520, 160],
+        "id": "112eaf01-8675-4513-9387-3285019eaa01",
+        "name": "Jalankan Manual"
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "15 3 * * *"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [-520, 360],
+        "id": "112eaf01-8675-4513-9387-3285019eaa02",
+        "name": "Setiap Hari 03.15"
+      },
+      {
+        "parameters": {
+          "url": "={{ $env.BONBOX_API_URL + '/api/products' }}",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [-260, 260],
+        "id": "112eaf01-8675-4513-9387-3285019eaa03",
+        "name": "Ambil Produk Bonbox"
+      },
+      {
+        "parameters": {
+          "jsCode": "const response = $input.first().json;\nconst products = Array.isArray(response.products) ? response.products : [];\nconst candidates = products\n  .filter((product) => product.active !== false)\n  .filter((product) => /^https:\\/\\/(?:[^/]+\\.)?shopee\\.co\\.id\\/(?:product|opaanlp)\\/\\d+\\/\\d+/.test(String(product.productUrl || '')))\n  .slice(0, 150)\n  .map((product) => ({ productId: String(product.id), url: String(product.productUrl) }));\n\nif (!candidates.length) return [];\nreturn [{ json: { products: candidates, requested: candidates.length } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [-20, 260],
+        "id": "112eaf01-8675-4513-9387-3285019eaa04",
+        "name": "Pilih Link Shopee Aktif"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.BONBOX_EXTRACTOR_URL + '/prices' }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ 'Bearer ' + $env.BONBOX_EXTRACTOR_TOKEN }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ products: $json.products }) }}",
+          "options": {
+            "timeout": 600000
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [220, 260],
+        "id": "112eaf01-8675-4513-9387-3285019eaa05",
+        "name": "Baca Harga dari Shopee"
+      },
+      {
+        "parameters": {
+          "jsCode": "const result = $input.first().json;\nconst state = $getWorkflowStaticData('global');\nstate.lastFailures = Array.isArray(result.failures) ? result.failures : [];\nstate.lastCheckedAt = new Date().toISOString();\nconst updates = (Array.isArray(result.updates) ? result.updates : [])\n  .filter((item) => item.productId && item.priceLabel)\n  .map((item) => ({\n    id: String(item.productId),\n    priceLabel: String(item.priceLabel),\n    salesLabel: String(item.salesLabel || ''),\n  }));\n\nif (!updates.length) return [];\nreturn [{ json: {\n  updates,\n  checked: Number(result.requested || 0),\n  succeeded: updates.length,\n  failed: Number(result.failed || 0),\n} }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [460, 260],
+        "id": "112eaf01-8675-4513-9387-3285019eaa06",
+        "name": "Validasi Harga"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.BONBOX_API_URL + '/api/automation/product-pricing' }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-automation-token",
+                "value": "={{ $env.BONBOX_AUTOMATION_TOKEN }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ updates: $json.updates }) }}",
+          "options": {
+            "timeout": 120000
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [700, 260],
+        "id": "112eaf01-8675-4513-9387-3285019eaa07",
+        "name": "Simpan Harga ke Bonbox"
+      },
+      {
+        "parameters": {
+          "jsCode": "return $input.all().map((item) => ({ json: {\n  ok: Boolean(item.json.ok),\n  requested: Number(item.json.requested || 0),\n  updated: Number(item.json.updated || 0),\n  skipped: Number(item.json.skipped || 0),\n  completedAt: new Date().toISOString(),\n} }));"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [940, 260],
+        "id": "112eaf01-8675-4513-9387-3285019eaa08",
+        "name": "Ringkasan"
+      },
+      {
+        "parameters": {
+          "content": "## BONBOX price sync\n\nWorkflow berjalan setiap hari pukul 03.15 WIB.\n\n1. Membaca semua produk aktif BONBOX.\n2. Mengikuti link produk Shopee.\n3. Membaca harga mulai dan jumlah terjual lewat browser BONBOX yang sudah login.\n4. Menolak harga kosong, nol, atau tidak masuk akal.\n5. Memperbarui harga saja; foto, link, nama, kategori, dan deskripsi tidak diubah.\n\nDocker, n8n, dan browser Shopee khusus BONBOX harus tetap berjalan.",
+          "height": 300,
+          "width": 440,
+          "color": 5
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [-20, -140],
+        "id": "112eaf01-8675-4513-9387-3285019eaa09",
+        "name": "Petunjuk"
+      }
+    ],
+    "connections": {
+      "Jalankan Manual": {
+        "main": [[{ "node": "Ambil Produk Bonbox", "type": "main", "index": 0 }]]
+      },
+      "Setiap Hari 03.15": {
+        "main": [[{ "node": "Ambil Produk Bonbox", "type": "main", "index": 0 }]]
+      },
+      "Ambil Produk Bonbox": {
+        "main": [[{ "node": "Pilih Link Shopee Aktif", "type": "main", "index": 0 }]]
+      },
+      "Pilih Link Shopee Aktif": {
+        "main": [[{ "node": "Baca Harga dari Shopee", "type": "main", "index": 0 }]]
+      },
+      "Baca Harga dari Shopee": {
+        "main": [[{ "node": "Validasi Harga", "type": "main", "index": 0 }]]
+      },
+      "Validasi Harga": {
+        "main": [[{ "node": "Simpan Harga ke Bonbox", "type": "main", "index": 0 }]]
+      },
+      "Simpan Harga ke Bonbox": {
+        "main": [[{ "node": "Ringkasan", "type": "main", "index": 0 }]]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate",
+      "availableInMCP": false,
+      "timezone": "Asia/Bangkok"
+    },
+    "staticData": {
+      "global": {
+        "lastFailures": [],
+        "lastCheckedAt": ""
+      }
+    },
+    "pinData": {},
+    "tags": [],
+    "versionId": "3022d37a-85db-4d4c-b70e-48562168e86c"
+  }
+]
